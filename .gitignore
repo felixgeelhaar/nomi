@@ -54,3 +54,5 @@ test/journeys/.results/
 state.json.backup
 usage.json
 plan.json.backup
+.relicta/
+.claude/settings.local.json
