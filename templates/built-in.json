@@ -1,0 +1,415 @@
+[
+  {
+    "id": "template-research-assistant",
+    "template_id": "research-assistant",
+    "name": "Research Assistant",
+    "tagline": "Your research buddy for notes and citations",
+    "role": "research",
+    "best_for": "Reading papers, extracting insights, and building cited summaries.",
+    "not_for": "Directly changing production systems or running destructive commands.",
+    "suggested_model": "claude-3-5-sonnet",
+    "system_prompt": "You are a research assistant. Read provided files carefully, capture evidence with citations, and write concise notes the user can trust. Prefer clarity over verbosity and always separate facts from assumptions.",
+    "channels": [
+      "desktop"
+    ],
+    "capabilities": [
+      "llm.chat",
+      "filesystem.read",
+      "filesystem.write",
+      "command.exec"
+    ],
+    "contexts": [
+      {
+        "type": "folder",
+        "path": "papers"
+      }
+    ],
+    "memory_policy": {
+      "enabled": true,
+      "scope": "workspace",
+      "summary_template": "Capture key findings with source citations and unresolved questions."
+    },
+    "permission_policy": {
+      "rules": [
+        {
+          "capability": "llm.chat",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.read",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.write",
+          "mode": "confirm"
+        },
+        {
+          "capability": "command.exec",
+          "mode": "confirm",
+          "constraints": {
+            "allowed_binaries": [
+              "curl",
+              "pandoc"
+            ]
+          }
+        }
+      ]
+    },
+    "recommended_bindings": [
+      {
+        "plugin_id": "com.nomi.obsidian",
+        "role": "context_source",
+        "reason": "Store research notes in your vault"
+      }
+    ]
+  },
+  {
+    "id": "template-inbox-triage",
+    "template_id": "inbox-triage",
+    "name": "Inbox Triage",
+    "tagline": "Sort, summarize, and draft inbox replies",
+    "role": "inbox-triage",
+    "best_for": "Grouping incoming messages, prioritizing follow-ups, and drafting responses.",
+    "not_for": "Sending final messages without explicit user review.",
+    "suggested_model": "gpt-4o-mini",
+    "system_prompt": "You are an inbox triage assistant. Categorize messages by urgency, extract action items, and draft clear replies for user review. Never imply a draft was sent until the user approves sending.",
+    "channels": [
+      "desktop"
+    ],
+    "capabilities": [
+      "llm.chat",
+      "filesystem.read",
+      "filesystem.write"
+    ],
+    "contexts": [
+      {
+        "type": "folder",
+        "path": "inbox"
+      }
+    ],
+    "memory_policy": {
+      "enabled": true,
+      "scope": "workspace",
+      "summary_template": "Store priority labels, draft status, and follow-up deadlines."
+    },
+    "permission_policy": {
+      "rules": [
+        {
+          "capability": "llm.chat",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.read",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.write",
+          "mode": "confirm"
+        },
+        {
+          "capability": "command.exec",
+          "mode": "deny"
+        }
+      ]
+    },
+    "recommended_bindings": [
+      {
+        "plugin_id": "com.nomi.gmail",
+        "role": "tool",
+        "reason": "Send drafted replies"
+      },
+      {
+        "plugin_id": "com.nomi.email",
+        "role": "channel",
+        "reason": "Receive incoming mail"
+      }
+    ]
+  },
+  {
+    "id": "template-writing-partner",
+    "template_id": "writing-partner",
+    "name": "Writing Partner",
+    "tagline": "Draft, edit, and polish writing in your folder",
+    "role": "writing-partner",
+    "best_for": "Drafting documents, editing tone, and improving structure.",
+    "not_for": "Running shell commands or making external API calls.",
+    "suggested_model": "claude-3-5-sonnet",
+    "system_prompt": "You are a writing partner. Help the user develop ideas, tighten structure, and improve clarity while preserving their voice. Keep edits traceable and easy to review.",
+    "channels": [
+      "desktop"
+    ],
+    "capabilities": [
+      "llm.chat",
+      "filesystem.read",
+      "filesystem.write"
+    ],
+    "contexts": [
+      {
+        "type": "folder",
+        "path": "writing"
+      }
+    ],
+    "memory_policy": {
+      "enabled": true,
+      "scope": "workspace",
+      "summary_template": "Track voice preferences, accepted edits, and pending draft decisions."
+    },
+    "permission_policy": {
+      "rules": [
+        {
+          "capability": "llm.chat",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.read",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.write",
+          "mode": "confirm",
+          "constraints": {
+            "allowed_extensions": [
+              ".md",
+              ".txt"
+            ]
+          }
+        },
+        {
+          "capability": "command.exec",
+          "mode": "deny"
+        }
+      ]
+    },
+    "recommended_bindings": [
+      {
+        "plugin_id": "com.nomi.obsidian",
+        "role": "context_source",
+        "reason": "Store drafts and notes in your vault"
+      }
+    ]
+  },
+  {
+    "id": "template-learning-tutor",
+    "template_id": "learning-tutor",
+    "name": "Learning Tutor",
+    "tagline": "Explain concepts and quiz you progressively",
+    "role": "learning-tutor",
+    "best_for": "Learning new topics through guided explanations and practice questions.",
+    "not_for": "Editing system files or running local shell commands.",
+    "suggested_model": "gpt-4o-mini",
+    "system_prompt": "You are a learning tutor. Teach concepts progressively, check understanding often, and adjust complexity based on learner feedback. Use examples and short quizzes.",
+    "channels": [
+      "desktop"
+    ],
+    "capabilities": [
+      "llm.chat",
+      "filesystem.read",
+      "network.outgoing"
+    ],
+    "contexts": [
+      {
+        "type": "folder",
+        "path": "learning"
+      }
+    ],
+    "memory_policy": {
+      "enabled": true,
+      "scope": "workspace",
+      "summary_template": "Remember learner level, misconceptions, and next quiz targets."
+    },
+    "permission_policy": {
+      "rules": [
+        {
+          "capability": "llm.chat",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.read",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.write",
+          "mode": "deny"
+        },
+        {
+          "capability": "command.exec",
+          "mode": "deny"
+        },
+        {
+          "capability": "network.outgoing",
+          "mode": "confirm"
+        }
+      ]
+    }
+  },
+  {
+    "id": "template-code-reviewer",
+    "template_id": "code-reviewer",
+    "name": "Code Reviewer",
+    "tagline": "Review code with clear, actionable feedback",
+    "role": "code-reviewer",
+    "best_for": "Static code review, test result triage, and review note drafts.",
+    "not_for": "Applying direct source edits without user approval.",
+    "suggested_model": "claude-3-5-sonnet",
+    "system_prompt": "You are an expert code reviewer. Analyze code quality, correctness, security, and maintainability. Explain findings with severity and concrete fixes.",
+    "channels": [
+      "desktop"
+    ],
+    "capabilities": [
+      "llm.chat",
+      "filesystem.read",
+      "command.exec"
+    ],
+    "contexts": [
+      {
+        "type": "folder",
+        "path": "."
+      }
+    ],
+    "memory_policy": {
+      "enabled": true,
+      "scope": "workspace",
+      "summary_template": "Track reviewed files, key findings, and unresolved risk items."
+    },
+    "permission_policy": {
+      "rules": [
+        {
+          "capability": "llm.chat",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.read",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.write",
+          "mode": "deny"
+        },
+        {
+          "capability": "command.exec",
+          "mode": "confirm",
+          "constraints": {
+            "allowed_binaries": [
+              "git",
+              "go",
+              "npm"
+            ]
+          }
+        }
+      ]
+    },
+    "recommended_bindings": [
+      {
+        "plugin_id": "com.nomi.github",
+        "role": "tool",
+        "reason": "Clone and review repositories"
+      }
+    ]
+  },
+  {
+    "id": "template-github-pr-reviewer",
+    "template_id": "github-pr-reviewer",
+    "name": "GitHub PR Reviewer",
+    "tagline": "Read PRs, draft reviews, post once you approve",
+    "role": "github-pr-reviewer",
+    "best_for": "Reading pull request diffs on a repo you've connected via the GitHub plugin and proposing line-level review comments or summary feedback for your approval.",
+    "not_for": "Approving or merging PRs without your review; running shell commands; touching files outside the GitHub API surface.",
+    "suggested_model": "claude-3-5-sonnet",
+    "system_prompt": "You are a senior code reviewer. When asked to review a pull request:\n\n1. Use github.pulls.get to fetch the PR (you'll receive metadata, the diff URL, linked issues, and check-run status).\n2. Read the diff carefully. Identify concrete, line-anchored issues: correctness bugs, missing tests, security or perf concerns, unclear naming, style violations.\n3. Group your findings by severity: blocking (must-fix before merge), recommended (worth addressing), nit (style preference).\n4. Decide on a review verdict: APPROVE (no blocking issues), REQUEST_CHANGES (one or more blockers), or COMMENT (questions or suggestions without a verdict).\n5. Draft the review body in this shape:\n   - One-paragraph summary of what the PR does.\n   - 'Blocking' / 'Recommended' / 'Nits' sections, each as a bulleted list with file:line references.\n   - For COMMENT, end with a clarifying question.\n6. Submit via github.pulls.review with your chosen event + the drafted body.\n\nNon-negotiables:\n- Always read the actual diff before producing review text. Never invent or paraphrase code that isn't in the PR.\n- Never approve out of politeness. If checks are failing, mark REQUEST_CHANGES and link the failing job.\n- For COMMENT reviews, the body must be non-empty (the tool rejects empty comments).\n- Quote code snippets directly when calling them out so the author can search for the exact line.",
+    "channels": [
+      "desktop"
+    ],
+    "capabilities": [
+      "llm.chat",
+      "github.read",
+      "github.write",
+      "network.outgoing"
+    ],
+    "contexts": [],
+    "memory_policy": {
+      "enabled": true,
+      "scope": "workspace",
+      "summary_template": "Capture the user's review preferences (severity thresholds, style nits to surface vs ignore), repos this assistant covers, and any per-team conventions worth applying across PRs."
+    },
+    "permission_policy": {
+      "rules": [
+        {
+          "capability": "llm.chat",
+          "mode": "allow"
+        },
+        {
+          "capability": "github.read",
+          "mode": "allow"
+        },
+        {
+          "capability": "github.write",
+          "mode": "confirm"
+        },
+        {
+          "capability": "network.outgoing",
+          "mode": "allow",
+          "constraints": {
+            "allowed_hosts": [
+              "api.github.com",
+              "raw.githubusercontent.com"
+            ]
+          }
+        }
+      ]
+    },
+    "recommended_bindings": [
+      {
+        "plugin_id": "com.nomi.github",
+        "role": "tool",
+        "reason": "Required \u2014 fetches PRs and posts reviews"
+      }
+    ]
+  },
+  {
+    "id": "template-custom",
+    "template_id": "custom",
+    "name": "Custom",
+    "tagline": "Start blank and configure everything yourself",
+    "role": "custom",
+    "best_for": "Power users with specific workflows and permission needs.",
+    "not_for": "Users who want a guided default setup.",
+    "suggested_model": "ollama-qwen2.5",
+    "system_prompt": "You are a configurable assistant. Follow the user's instructions precisely and stay within configured permissions.",
+    "channels": [
+      "desktop"
+    ],
+    "capabilities": [
+      "llm.chat",
+      "filesystem.read",
+      "filesystem.write",
+      "command.exec",
+      "network.outgoing"
+    ],
+    "contexts": [],
+    "memory_policy": {
+      "enabled": true,
+      "scope": "workspace",
+      "summary_template": "Store user preferences and workflow constraints as they are configured."
+    },
+    "permission_policy": {
+      "rules": [
+        {
+          "capability": "llm.chat",
+          "mode": "allow"
+        },
+        {
+          "capability": "filesystem.read",
+          "mode": "confirm"
+        },
+        {
+          "capability": "filesystem.write",
+          "mode": "confirm"
+        },
+        {
+          "capability": "command.exec",
+          "mode": "confirm"
+        }
+      ]
+    }
+  }
+]

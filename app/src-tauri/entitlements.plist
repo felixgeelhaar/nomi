@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Required by WKWebView under hardened runtime. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- The wasmhost runtime in the Go daemon executes JIT-compiled
+         WASM modules; without this entitlement those allocations would
+         trigger a "killed: 9" under hardened runtime. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- Tauri loads framework dylibs that aren't signed with our own
+         identity. Library validation would otherwise reject them. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- The desktop shell talks to the Go daemon at 127.0.0.1:8080 and
+         to the configured update endpoint over HTTPS. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- The Go daemon listens on 127.0.0.1:8080 for the API. We're not
+         sandboxed (Developer ID distribution, not Mac App Store), so
+         this is technically advisory rather than required, but
+         declaring it documents the runtime behavior. -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+</dict>
+</plist>

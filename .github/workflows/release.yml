@@ -1,0 +1,506 @@
+name: Release
+
+# Tag-driven release pipeline. Pushing a v*.*.* tag (e.g. `git tag v0.2.0 &&
+# git push origin v0.2.0`) creates a draft GitHub Release and builds the
+# Go daemon + Tauri desktop bundle on every supported platform, attaching
+# the artifacts to the draft. Apple/Windows code-signing happens in
+# signing-05/07; this workflow uploads unsigned artifacts plus the
+# Tauri-updater signature (.sig) produced from TAURI_SIGNING_PRIVATE_KEY.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+# One release run per tag; later pushes of the same tag (rare, but
+# possible after a force-push) wait for the in-flight run to finish
+# rather than racing it.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # create the draft release + upload assets
+
+jobs:
+  create-release:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.derive.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: derive
+        name: Derive semver from tag
+        shell: bash
+        run: |
+          # Strip the leading `v` so tauri.conf.json + Cargo + ldflags
+          # all see a bare semver string.
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: create-release
+    runs-on: ${{ matrix.platform }}
+    env:
+      VERSION: ${{ needs.create-release.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14
+            tauri_args: '--target universal-apple-darwin'
+            daemon_suffix: 'universal-apple-darwin'
+          - platform: ubuntu-latest
+            tauri_args: ''
+            daemon_suffix: 'x86_64-unknown-linux-gnu'
+          - platform: windows-latest
+            tauri_args: ''
+            daemon_suffix: 'x86_64-pc-windows-msvc.exe'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # `git describe` in Makefile needs full history
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            app/src-tauri/target
+          key: cargo-${{ matrix.platform }}-${{ hashFiles('app/src-tauri/Cargo.lock') }}
+
+      - name: Install Linux build deps
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf
+
+      - name: Add macOS universal Rust targets
+        if: matrix.platform == 'macos-14'
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
+
+      - name: Compute build metadata
+        shell: bash
+        run: |
+          # COMMIT + BUILD_DATE feed -ldflags via the existing Makefile
+          # vars. VERSION already carries the tag-derived semver from
+          # the create-release job output.
+          echo "COMMIT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Build Go daemon (per-target, for both standalone release artifact AND Tauri sidecar bundling)
+        shell: bash
+        env:
+          LDFLAGS: "-s -w -X github.com/felixgeelhaar/nomi/internal/buildinfo.Version=${{ env.VERSION }} -X github.com/felixgeelhaar/nomi/internal/buildinfo.Commit=${{ env.COMMIT }} -X github.com/felixgeelhaar/nomi/internal/buildinfo.BuildDate=${{ env.BUILD_DATE }}"
+        run: |
+          mkdir -p app/src-tauri/bin
+          # Tauri's externalBin convention: list "bin/nomid" in
+          # tauri.conf.json, place files named bin/nomid-<target-triple>
+          # in src-tauri/. The bundler picks the right one per build
+          # target and copies it next to the shell binary inside the
+          # produced .app / .msi / .deb.
+          build_for() {
+            local goos="$1" goarch="$2" triple="$3" ext="${4:-}"
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build \
+              -trimpath -ldflags "$LDFLAGS" \
+              -o "app/src-tauri/bin/nomid-${triple}${ext}" \
+              ./cmd/nomid
+            cp "app/src-tauri/bin/nomid-${triple}${ext}" \
+               "bin/nomid-${VERSION}-${triple}${ext}" 2>/dev/null || \
+              { mkdir -p bin && cp "app/src-tauri/bin/nomid-${triple}${ext}" "bin/nomid-${VERSION}-${triple}${ext}"; }
+          }
+          case "${{ matrix.platform }}" in
+            macos-14)
+              # Universal target needs both arches present so Tauri can
+              # produce a fat binary.
+              build_for darwin arm64 aarch64-apple-darwin
+              build_for darwin amd64 x86_64-apple-darwin
+              ;;
+            ubuntu-latest)
+              build_for linux amd64 x86_64-unknown-linux-gnu
+              ;;
+            windows-latest)
+              build_for windows amd64 x86_64-pc-windows-msvc .exe
+              ;;
+          esac
+
+      - name: Install JS deps
+        working-directory: app
+        run: npm ci
+
+      - name: Sync Tauri version with tag
+        shell: bash
+        run: |
+          # Tauri reads version from tauri.conf.json + Cargo.toml + package.json.
+          # Keep them in sync with the tag so the bundler stamps the right
+          # version into produced filenames + the auto-update manifest.
+          node -e "
+            const fs = require('fs');
+            const v = process.env.VERSION;
+            for (const p of ['app/src-tauri/tauri.conf.json', 'app/package.json']) {
+              const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+              j.version = v;
+              fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+            }
+            // Cargo.toml — simple text replace on the package.version line.
+            const cargo = fs.readFileSync('app/src-tauri/Cargo.toml', 'utf8');
+            fs.writeFileSync(
+              'app/src-tauri/Cargo.toml',
+              cargo.replace(/^version = \".*\"/m, 'version = \"' + v + '\"')
+            );
+          "
+
+      - name: Build Tauri app
+        working-directory: app
+        env:
+          # Updater bundle signing — separate from Apple/Windows codesign.
+          # Falls back to the committed dev key (acceptable for unsigned
+          # draft releases; signing-05/07 layer the production cert work
+          # on top). The dev key path mirrors the structure baked into
+          # tauri.conf.json.pubkey.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Apple codesign / notarize secrets — wired up but not required
+          # until signing-05 enables them. Empty values cause Tauri to
+          # produce unsigned macOS bundles, which is fine for this task.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: npx tauri build ${{ matrix.tauri_args }}
+
+      - name: Sign Windows MSI + NSIS bundles
+        if: matrix.platform == 'windows-latest' && env.WINDOWS_CERTIFICATE != ''
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          # Tauri's WiX bundler doesn't sign by default in CI because
+          # the cert isn't on the runner's store. Post-build signtool
+          # over each produced bundle keeps the signing concern in one
+          # place and matches the macOS pattern (Tauri-built, then
+          # verified). EV/OV cert with timestamping (DigiCert) so the
+          # signature stays valid past the cert's own expiry.
+          $pfx = "$env:RUNNER_TEMP\nomi-cert.pfx"
+          [System.IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          $bundles = @()
+          $bundles += Get-ChildItem -Path "app/src-tauri/target/release/bundle/msi" -Filter "*.msi" -ErrorAction SilentlyContinue
+          $bundles += Get-ChildItem -Path "app/src-tauri/target/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue
+          foreach ($b in $bundles) {
+            Write-Host "Signing $($b.FullName)"
+            & $signtool sign `
+              /f $pfx `
+              /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+              /tr "http://timestamp.digicert.com" `
+              /td sha256 `
+              /fd sha256 `
+              $b.FullName
+            if ($LASTEXITCODE -ne 0) { throw "signtool failed for $($b.FullName)" }
+            & $signtool verify /pa $b.FullName
+            if ($LASTEXITCODE -ne 0) { throw "signature verify failed for $($b.FullName)" }
+          }
+          Remove-Item $pfx -Force
+
+      - name: Verify macOS signature + notarization
+        if: matrix.platform == 'macos-14' && env.APPLE_SIGNING_IDENTITY != ''
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        shell: bash
+        run: |
+          # Tauri's macOS bundler signs + notarizes when the APPLE_*
+          # secrets are present. This step asserts the result so a
+          # silent signing skip (e.g. typo'd secret name) fails the
+          # release rather than shipping an unsigned bundle.
+          APP="$(find app/src-tauri/target/universal-apple-darwin/release/bundle/macos -name '*.app' -maxdepth 1 -type d | head -1)"
+          if [ -z "$APP" ]; then
+            echo "::error::No .app bundle found"
+            exit 1
+          fi
+          echo "Verifying $APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          # spctl --assess checks against the Gatekeeper policy that
+          # users see on first launch. notarized + stapled apps return
+          # "accepted" with source "Notarized Developer ID".
+          spctl --assess --type execute --verbose=2 "$APP"
+
+      - name: Stage daemon for upload
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp bin/nomid-* dist/
+
+      - name: Stage Tauri bundles (macOS)
+        if: matrix.platform == 'macos-14'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg dist/ || true
+          cp app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz dist/ || true
+          cp app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig dist/ || true
+
+      - name: Stage Tauri bundles (Linux)
+        if: matrix.platform == 'ubuntu-latest'
+        shell: bash
+        run: |
+          mkdir -p dist
+          # AppImage is the primary distribution path: single-file,
+          # executable, no install required. Tauri's bundler already
+          # marks it +x, but we re-assert here so chmod survives any
+          # cp -p behavior changes upstream.
+          for f in app/src-tauri/target/release/bundle/appimage/*.AppImage; do
+            [ -f "$f" ] || continue
+            chmod +x "$f"
+            cp "$f" dist/
+          done
+          cp app/src-tauri/target/release/bundle/appimage/*.AppImage.sig dist/ 2>/dev/null || true
+          # .deb is a secondary path. We ship it next to the AppImage so
+          # users on Debian/Ubuntu can `sudo dpkg -i` directly. A real
+          # apt repo at apt.nomi.ai is deferred to Phase 4.
+          cp app/src-tauri/target/release/bundle/deb/*.deb dist/ 2>/dev/null || true
+
+      - name: Stage Tauri bundles (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp app/src-tauri/target/release/bundle/msi/*.msi dist/ 2>/dev/null || true
+          cp app/src-tauri/target/release/bundle/msi/*.msi.sig dist/ 2>/dev/null || true
+          cp app/src-tauri/target/release/bundle/nsis/*.exe dist/ 2>/dev/null || true
+          cp app/src-tauri/target/release/bundle/nsis/*.exe.sig dist/ 2>/dev/null || true
+
+      - name: Attach artifacts to draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ github.ref_name }}
+          files: dist/*
+          fail_on_unmatched_files: false
+
+  aggregate-checksums:
+    name: Aggregate SHA256SUMS
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download every asset from the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p assets
+          # The matrix uploaded each platform's artifacts to the same
+          # draft release; gather them all so we can build a single
+          # release-wide checksum file users can verify against.
+          gh release download "$TAG" --dir assets --clobber
+
+      - name: Compute combined SHA256SUMS
+        run: |
+          cd assets
+          # Filter out any per-platform partial sums and any pre-existing
+          # SHA256SUMS so the combined file describes only release
+          # artifacts (not the sum-files themselves).
+          find . -maxdepth 1 -type f \
+            ! -name 'SHA256SUMS' \
+            ! -name 'SHA256SUMS-*.txt' \
+            -printf '%f\n' \
+            | sort \
+            | xargs -I{} sha256sum "./{}" \
+            | sed 's| \./| |' \
+            > SHA256SUMS
+
+      - name: Attach SHA256SUMS to release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ github.ref_name }}
+          files: assets/SHA256SUMS
+          fail_on_unmatched_files: true
+
+  bump-scoop-bucket:
+    name: Bump Scoop Bucket
+    needs: aggregate-checksums
+    runs-on: ubuntu-latest
+    # Same gating pattern as the cask: skip silently if the bucket
+    # hasn't been provisioned yet. The signed MSI still ships in the
+    # GitHub Release for direct download.
+    if: ${{ vars.SCOOP_BUCKET_REPO != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download MSI from draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p msi
+          gh release download "$TAG" --dir msi --pattern '*_x64_en-US.msi' --clobber
+
+      - name: Compute MSI sha256 + version
+        id: meta
+        run: |
+          MSI="$(find msi -maxdepth 1 -name '*.msi' -type f | head -1)"
+          if [ -z "$MSI" ]; then
+            echo "::error::no x64 MSI in release; Windows build may have failed"
+            exit 1
+          fi
+          SHA="$(sha256sum "$MSI" | awk '{print $1}')"
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Render manifest with new version + sha
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          mkdir -p out/bucket
+          # jq keeps the JSON formatting consistent and avoids the
+          # escaping pitfalls of sed-on-JSON.
+          URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Nomi_${VERSION}_x64_en-US.msi"
+          jq \
+            --arg version "${VERSION}" \
+            --arg url "${URL}" \
+            --arg sha "${SHA}" \
+            '.version = $version
+             | .url = $url
+             | .hash = $sha
+             | .architecture["64bit"].url = $url
+             | .architecture["64bit"].hash = $sha' \
+            scoop-bucket/bucket/nomi.json > out/bucket/nomi.json
+
+      - name: Open auto-bump PR against scoop-bucket repo
+        env:
+          GH_TOKEN: ${{ secrets.SCOOP_BUCKET_GITHUB_TOKEN }}
+          BUCKET_REPO: ${{ vars.SCOOP_BUCKET_REPO }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::SCOOP_BUCKET_GITHUB_TOKEN not set; skipping bucket bump"
+            exit 0
+          fi
+          BRANCH="bump-nomi-${VERSION}"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${BUCKET_REPO}.git" bucket-repo
+          cd bucket-repo
+          git config user.name "nomi-release-bot"
+          git config user.email "release-bot@nomi.ai"
+          git checkout -b "${BRANCH}"
+          mkdir -p bucket
+          cp ../out/bucket/nomi.json bucket/nomi.json
+          git add bucket/nomi.json
+          git commit -m "Bump nomi to ${VERSION}"
+          git push -u origin "${BRANCH}"
+          gh pr create \
+            --repo "${BUCKET_REPO}" \
+            --title "Bump nomi to ${VERSION}" \
+            --body "Automated bucket bump for [nomi v${VERSION}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})." \
+            --head "${BRANCH}"
+
+  bump-homebrew-cask:
+    name: Bump Homebrew Cask
+    needs: aggregate-checksums
+    runs-on: ubuntu-latest
+    # Only run when a tap PAT is configured; without it the job has
+    # nowhere to push to. The release still ships fine — users on
+    # macOS can download the .dmg directly until the tap is wired.
+    if: ${{ vars.HOMEBREW_TAP_REPO != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download universal DMG from draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dmg
+          gh release download "$TAG" --dir dmg --pattern '*_universal.dmg' --clobber
+
+      - name: Compute DMG sha256 + version
+        id: meta
+        run: |
+          DMG="$(find dmg -maxdepth 1 -name '*.dmg' -type f | head -1)"
+          if [ -z "$DMG" ]; then
+            echo "::error::no universal DMG in release; macOS build may have failed"
+            exit 1
+          fi
+          SHA="$(sha256sum "$DMG" | awk '{print $1}')"
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Render cask file with new version + sha
+        run: |
+          # The committed cask uses :no_check on the sha256 line because
+          # the dev-time copy never knows the published artifact's hash.
+          # Here we substitute the real values for the upstream PR.
+          mkdir -p out/Casks
+          sed \
+            -e "s|^  version \".*\"$|  version \"${{ steps.meta.outputs.version }}\"|" \
+            -e "s|^  sha256 :no_check$|  sha256 \"${{ steps.meta.outputs.sha }}\"|" \
+            homebrew-tap/Casks/nomi.rb > out/Casks/nomi.rb
+
+      - name: Open auto-bump PR against tap repo
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          TAP_REPO: ${{ vars.HOMEBREW_TAP_REPO }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          # Clone the tap, copy the rendered cask in, push a branch, open a PR.
+          # No HOMEBREW_TAP_GITHUB_TOKEN → skip with a warning so the
+          # main release still publishes.
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::HOMEBREW_TAP_GITHUB_TOKEN not set; skipping cask bump"
+            exit 0
+          fi
+          BRANCH="bump-nomi-${VERSION}"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" tap
+          cd tap
+          git config user.name "nomi-release-bot"
+          git config user.email "release-bot@nomi.ai"
+          git checkout -b "${BRANCH}"
+          mkdir -p Casks
+          cp ../out/Casks/nomi.rb Casks/nomi.rb
+          git add Casks/nomi.rb
+          git commit -m "Bump nomi to ${VERSION}"
+          git push -u origin "${BRANCH}"
+          gh pr create \
+            --repo "${TAP_REPO}" \
+            --title "Bump nomi to ${VERSION}" \
+            --body "Automated cask bump for [nomi v${VERSION}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})." \
+            --head "${BRANCH}"

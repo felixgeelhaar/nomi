@@ -1,0 +1,319 @@
+package runtime
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/felixgeelhaar/nomi/internal/domain"
+	"github.com/felixgeelhaar/nomi/internal/llm"
+)
+
+// plannerStep is the planner's intermediate representation, narrower than
+// the full StepDefinition. planSteps converts these into StepDefinitions
+// with database IDs + timestamps. The Why field carries an explanation
+// when a learned preference influenced this step. Arguments carries
+// tool-specific keyed inputs (e.g. {path, content} for filesystem.write,
+// {command} for command.exec) that the runtime merges into toolInput at
+// execution time.
+type plannerStep struct {
+	Title       string                 `json:"title"`
+	Description string                 `json:"description"`
+	Tool        string                 `json:"tool"`
+	Why         string                 `json:"why,omitempty"`
+	Arguments   map[string]interface{} `json:"arguments,omitempty"`
+}
+
+// toolDescription is a human-readable one-liner shown to the LLM so it can
+// reason about which tool fits each step. Keeping this static (rather than
+// pulling from each tool's own Describe() method) keeps the surface small
+// for V1; if a tool isn't in this map but IS registered, it's listed with
+// no description — the planner can still use it.
+var toolDescription = map[string]string{
+	"llm.chat":           "Ask the LLM to think, reason, summarize, or generate text. Use for anything that doesn't require reading or writing files.",
+	"filesystem.read":    "Read the contents of a file from the assistant's workspace folder.",
+	"filesystem.write":   "Write content to a file in the assistant's workspace folder. Requires user approval.",
+	"filesystem.context": "List the folder structure of the assistant's workspace. Useful for orienting before reading specific files.",
+	"command.exec":       "Run a single shell command. Only allowed binaries are permitted; the command is refused if it contains shell metacharacters. Requires user approval.",
+}
+
+// planWithLLM asks the default LLM to decompose a goal into a list of
+// concrete steps, each tagged with the tool it should route to. Returns
+// nil (no error) when no LLM is configured or when the LLM returns an
+// unparseable / invalid plan — callers should fall back to the legacy
+// single-step shape.
+//
+// This is the heart of Phase 1.2 Multi-Step Planning: it's what makes the
+// plan-review UX meaningful. Without it, users see "Execute: <goal>" for
+// every run.
+func (r *Runtime) planWithLLM(
+	ctx context.Context,
+	goal string,
+	assistant *domain.AssistantDefinition,
+	contextData string,
+) []plannerStep {
+	if !r.hasDefaultLLM() {
+		return nil
+	}
+	client, model, err := r.llmResolver.DefaultClient()
+	if err != nil || client == nil {
+		return nil
+	}
+
+	toolList := r.availableToolsForPlanner(assistant)
+	if len(toolList) == 0 {
+		return nil
+	}
+
+	if assistant != nil && r.memManager != nil {
+		if entries, err := r.memManager.ListByAssistant(assistant.ID, 20); err == nil {
+			prefs := make([]string, 0, 5)
+			for _, e := range entries {
+				if e.Scope != "preferences" {
+					continue
+				}
+				prefs = append(prefs, "- "+e.Content)
+				if len(prefs) >= 20 {
+					break
+				}
+			}
+			if len(prefs) > 0 {
+				prefBlock := "Learned user planning preferences (most recent first):\n" + strings.Join(prefs, "\n")
+				if contextData != "" {
+					contextData = contextData + "\n\n" + prefBlock
+				} else {
+					contextData = prefBlock
+				}
+				// Add a hint for the LLM to explain when preferences influenced the plan
+				contextData += "\n\nWhen you use a preference to change the plan, add a 'why' field to the step: \"Why: Based on your preference for...\""
+			}
+		}
+	}
+
+	prompt := buildPlannerPrompt(goal, assistant, contextData, toolList)
+	resp, err := client.Chat(ctx, llm.ChatRequest{
+		Model: model,
+		Messages: []llm.ChatMessage{
+			{Role: "system", Content: plannerSystemPrompt},
+			{Role: "user", Content: prompt},
+		},
+		MaxTokens:   1024,
+		Temperature: 0.2,
+	})
+	if err != nil {
+		return nil
+	}
+
+	steps := parsePlannerResponse(resp.Content)
+	// Validate: every step's tool must be registered. If any step names a
+	// non-existent tool we refuse the whole plan rather than silently
+	// skipping — prompt injection could otherwise propose "system.exec"
+	// or similar and hope we pass it through.
+	knownTools := map[string]bool{}
+	for _, n := range r.toolExecutor.KnownTools() {
+		knownTools[n] = true
+	}
+	for _, s := range steps {
+		if !knownTools[s.Tool] {
+			return nil
+		}
+		if s.Title == "" {
+			return nil
+		}
+		// Reject the whole plan if any step's arguments don't match the
+		// tool's declared schema. Catching here avoids persisting a plan
+		// the user would only see fail at execution time with a
+		// "missing required field" error from inside the tool.
+		if err := validatePlannerArguments(s.Tool, s.Arguments); err != nil {
+			return nil
+		}
+	}
+	if len(steps) == 0 {
+		return nil
+	}
+	// Cap at a reasonable ceiling so a runaway plan can't blow up the
+	// rate limiter's per-run budget on the very first plan.
+	const maxPlannedSteps = 10
+	if len(steps) > maxPlannedSteps {
+		steps = steps[:maxPlannedSteps]
+	}
+	return steps
+}
+
+// availableToolsForPlanner returns (name, description) pairs for every
+// registered tool the assistant is actually permitted to use, sorted for
+// deterministic prompt output. Filtering here is what stops the LLM from
+// confidently planning a `browser.click` step on a Research Assistant
+// that never declared the browser capability — without the filter the
+// runtime accepts the plan, then the per-step ceiling check fails it,
+// which is the worst possible UX (plan looks fine, then explodes).
+func (r *Runtime) availableToolsForPlanner(assistant *domain.AssistantDefinition) []toolInfo {
+	names := r.toolExecutor.KnownTools()
+	sort.Strings(names)
+	out := make([]toolInfo, 0, len(names))
+	for _, n := range names {
+		if assistant != nil && !r.toolPermittedForAssistant(n, assistant) {
+			continue
+		}
+		out = append(out, toolInfo{Name: n, Description: toolDescription[n]})
+	}
+	return out
+}
+
+// toolPermittedForAssistant reports whether the assistant's declared
+// capabilities (the user-visible "Capabilities" list in the builder)
+// permit the named tool. The ceiling check is the same one the runtime
+// applies at execute time; running it here just moves the failure earlier
+// so the planner never proposes an unreachable step.
+func (r *Runtime) toolPermittedForAssistant(toolName string, assistant *domain.AssistantDefinition) bool {
+	capability := r.getCapabilityForTool(toolName)
+	return declaredCapabilityCeiling(assistant.Capabilities, capability)
+}
+
+type toolInfo struct {
+	Name        string
+	Description string
+}
+
+// plannerSystemPrompt is stable across all planning calls. User- and
+// assistant-specific instructions flow through the user message below.
+const plannerSystemPrompt = `You are a planning assistant for Nomi, a local-first AI agent platform. ` +
+	`You decompose user goals into concrete sequences of steps. ` +
+	`Always return valid JSON. Never include prose outside the JSON object. ` +
+	`Never include markdown code fences around the JSON.`
+
+func buildPlannerPrompt(
+	goal string,
+	assistant *domain.AssistantDefinition,
+	contextData string,
+	tools []toolInfo,
+) string {
+	var b strings.Builder
+
+	if assistant != nil {
+		fmt.Fprintf(&b, "Assistant: %s (role: %s)\n", assistant.Name, assistant.Role)
+		if assistant.SystemPrompt != "" {
+			fmt.Fprintf(&b, "Persona: %s\n\n", assistant.SystemPrompt)
+		}
+	}
+
+	fmt.Fprintf(&b, "User goal:\n%s\n\n", goal)
+
+	if contextData != "" {
+		fmt.Fprintf(&b, "Attached workspace context:\n%s\n\n", contextData)
+	}
+
+	b.WriteString("Available tools:\n")
+	for _, t := range tools {
+		if t.Description != "" {
+			fmt.Fprintf(&b, "- %s: %s\n", t.Name, t.Description)
+		} else {
+			fmt.Fprintf(&b, "- %s\n", t.Name)
+		}
+	}
+	b.WriteString("\n")
+
+	b.WriteString(`Produce a plan as a JSON object with this exact shape:
+
+{
+  "steps": [
+    {
+      "title": "short imperative title (≤ 80 chars)",
+      "description": "one or two sentences",
+      "tool": "one of the tool names above",
+      "arguments": { "key": "value" }
+    }
+  ]
+}
+
+Required argument shapes per tool. Arguments must be a JSON object — never a
+string. Omit "arguments" for tools that need none.
+- llm.chat:           {"prompt": "<the question or instruction to send>"}
+                       (omit if the goal text already says everything)
+- filesystem.read:    {"path": "<file path inside the workspace>"}
+- filesystem.write:   {"path": "<file path>", "content": "<full file body>"}
+- filesystem.context: {} (no arguments)
+- command.exec:       {"command": "<shell command, single binary, no pipes>"}
+
+Important: paths are ALWAYS resolved relative to the workspace root that
+the runtime configures separately. Do NOT prepend a folder name like
+"workspace/", "papers/", or "/Users/...". A goal that says "read notes.md"
+becomes {"path": "notes.md"}, never {"path": "workspace/notes.md"}.
+
+Guidelines:
+- Aim for 1 to 5 steps. Only use more if the goal genuinely requires them.
+- Each step must use exactly one of the listed tools.
+- If the goal just asks a question, a single llm.chat step is usually right.
+- If the goal asks to modify files, include the relevant read/write steps
+  AND the structured arguments — never put a path in the description and
+  expect the runtime to extract it.
+- Keep titles imperative: "Summarize paper" not "Summary of paper".
+- Return ONLY the JSON object, no preamble, no explanation, no markdown.
+- When you use a preference to change a step, add a "why" field: "Based on your preference for..."`)
+
+	return b.String()
+}
+
+// parsePlannerResponse pulls a steps array out of an LLM reply. Tolerates
+// markdown fences and prose surrounding the JSON object. Returns nil when
+// the response can't be parsed into the expected shape — callers fall back
+// to a single-step plan in that case.
+//
+// Decoding is strict: a Decoder configured with DisallowUnknownFields
+// rejects responses that name fields plannerStep doesn't know. Without
+// the strict mode, an LLM that emitted `"capabilities": [...]` (a
+// believable hallucination of the prompt) would have those fields
+// silently dropped — and any future plannerStep field added to the prompt
+// would only take effect on whatever models updated their templates.
+const maxPlannerJSONBytes = 64 * 1024
+
+func parsePlannerResponse(raw string) []plannerStep {
+	s := stripMarkdownFences(raw)
+	if s == "" {
+		return nil
+	}
+	// Locate the outermost JSON object. Some models wrap the JSON in prose
+	// despite explicit instructions not to — we trim to the {…} window.
+	start := strings.Index(s, "{")
+	end := strings.LastIndex(s, "}")
+	if start < 0 || end < 0 || end <= start {
+		return nil
+	}
+	body := s[start : end+1]
+	if len(body) > maxPlannerJSONBytes {
+		// Defense-in-depth: an LLM that streams a 5MB response shouldn't
+		// be able to make us allocate the whole thing into a Go map. The
+		// MaxTokens cap upstream already bounds this, but the planner
+		// shouldn't trust its caller.
+		return nil
+	}
+
+	dec := json.NewDecoder(strings.NewReader(body))
+	dec.DisallowUnknownFields()
+	var envelope struct {
+		Steps []plannerStep `json:"steps"`
+	}
+	if err := dec.Decode(&envelope); err != nil {
+		return nil
+	}
+	return envelope.Steps
+}
+
+// stripMarkdownFences peels ```json and ``` off responses that ignore the
+// "no fences" instruction. Reasonable LLMs follow instructions; many
+// smaller/local models don't.
+func stripMarkdownFences(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "```") {
+		// Drop the first line (either ``` or ```json).
+		if idx := strings.Index(s, "\n"); idx > 0 {
+			s = s[idx+1:]
+		}
+	}
+	if strings.HasSuffix(s, "```") {
+		s = strings.TrimSuffix(s, "```")
+	}
+	return strings.TrimSpace(s)
+}

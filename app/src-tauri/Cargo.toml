@@ -1,0 +1,28 @@
+[package]
+name = "nomi-app"
+version = "0.1.0"
+description = "Nomi Desktop Application"
+authors = ["Nomi Team"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
+tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["stream"] }
+tokio = { version = "1", features = ["rt", "sync"] }
+futures = "0.3"
+dirs = "5"
+rfd = "0.15"
+# PNG decoder for the embedded tray-icon PNGs. tauri::image::Image needs
+# raw RGBA + dimensions, which this crate produces with one allocation.
+png = "0.17"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

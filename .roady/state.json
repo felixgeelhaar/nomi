@@ -1,0 +1,1949 @@
+{
+  "project_id": "Nomi",
+  "version": 384,
+  "task_states": {
+    "approval-flow": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:04:28.534309+02:00",
+      "completed_at": "2026-04-23T11:07:58.584371+02:00",
+      "elapsed_minutes": 3
+    },
+    "assistant-builder-ceiling-validation": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented builder validation + API guard for capability ceiling and policy coherence: (1) Added real-time client-side validation in assistant-manager.tsx that computes ceiling violations as user edits policy rules, showing inline amber errors on each rule row ('Tick the {Family} box in Declared capabilities to allow this rule to take effect'); (2) Highlighted violated capability checkboxes with amber ring/bg; (3) Added violation summary text at top of capabilities section; (4) Blocked form submission when violations exist (scrolls to capabilities section); (5) Disabled submit button with tooltip; (6) API-level guard already existed in CreateAssistant/UpdateAssistant via ValidatePolicyAgainstCeiling — confirmed still working. TypeScript compiles clean. All 31 Go packages pass."
+      ],
+      "started_at": "2026-04-29T21:55:48.913406+02:00",
+      "completed_at": "2026-04-29T22:01:19.197489+02:00",
+      "elapsed_minutes": 5
+    },
+    "assistant-builder-ui-validation": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Inline validation, checkbox highlighting, submission blocking, and disabled submit button all implemented in assistant-manager.tsx as part of the ceiling validation feature."
+      ],
+      "started_at": "2026-04-29T22:01:34.787503+02:00",
+      "completed_at": "2026-04-29T22:01:41.132431+02:00",
+      "elapsed_minutes": 0
+    },
+    "browser-01-driver": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Driver decision: reuse felixgeelhaar/scout (which wraps Playwright internally) rather than embed chromedp/playwright-go directly. Scout already solves browser lifecycle, isolated profiles, semantic observation, network capture, and accessibility — duplicating in nomid would be ceremony with no benefit. Trade-off accepted: external scout binary dependency, installable via `brew install scout`. Implementation in internal/plugins/browser/mcp.go (JSON-RPC 2.0 over stdio MCP client: subprocess management, initialize handshake, concurrent CallTool with response routing via per-id channels, 16 MiB read buffer for screenshot bytes, graceful 3s shutdown then SIGKILL). Sandbox model: one Scout subprocess per Connection so each assistant gets an isolated browser profile."
+      ],
+      "started_at": "2026-04-26T14:39:31.736275+02:00",
+      "completed_at": "2026-04-26T14:46:25.534683+02:00",
+      "elapsed_minutes": 6
+    },
+    "browser-02-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "15 tools wired in internal/plugins/browser/plugin.go + tool.go: navigate, observe, click, type, fill_form (semantic), extract, extract_table, screenshot, readable_text, markdown, wait_for, has_element, scroll_by, dismiss_cookies, console_errors. Each Nomi tool maps to one Scout MCP tool; passArgs() generates the per-tool arg projection. Lazy per-Connection client spawn so Stop tears down idle clients with the others. decodeMCPResult unwraps the standard MCP `{content: [{type, text}]}` envelope and tries JSON-then-plain-text fallback so structured Scout responses surface as map[string]interface{} and plain text gets a `{text: ...}` wrapper. 14 unit tests against a stub MCP invoker covering manifest, dispatch (navigate/type/fill_form/observe/screenshot/extract), error surfacing, binding rejection, disabled connection, Start/Stop idempotency, decodeMCPResult shape coverage. Whole 31-package suite green."
+      ],
+      "started_at": "2026-04-26T14:46:31.31083+02:00",
+      "completed_at": "2026-04-26T14:46:44.886209+02:00",
+      "elapsed_minutes": 0
+    },
+    "browser-03-sessions-approval": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Per-domain gating shipped via per-Connection allowed_hosts allowlist (internal/plugins/browser/gate.go). Wildcard matching mirrors the existing wasmhost matcher (exact, *.suffix with leading-dot anchor that rejects \"slack.com.attacker.com\" impersonation, and explicit \"*\" escape hatch). Empty allowed_hosts denies all navigation — never silently allowed. browser.navigate is the gate point; subsequent click/type/extract/etc. trust the loaded page (matches user mental model: \"I told it to use example.com; clicking buttons there is normal\"). Connection config field added to manifest with required=true and a clear description. Tool dispatcher (tool.go) checks gate before clientFor so a deny path never even spawns Scout for the call. Crucial test: TestNavigate_DeniedByConnectionAllowlist asserts the MCP invoker has zero calls when the gate fires (a leaky gate would defeat the security purpose). 11 gate tests + existing 14 plugin tests, all green. Whole 31-package suite green.\n\nDEFERRED to a separate follow-up: (a) session/tab scoping by (assistant_id, session_id) using Scout's tab APIs, (b) idle-timeout cleanup of per-session tabs, (c) integration with the runtime approval flow for \"confirm\" mode (today the gate is binary allow/deny based on the connection allowlist; runtime-level approval gating per URL would route through ApprovalManager.RequestApproval but that requires plumbing the manager into the plugin and changing tool execution to be approval-aware, which is a larger refactor that warrants its own task). The current allowlist model is the security-meaningful piece; the approval flow is the UX-richer piece."
+      ],
+      "started_at": "2026-04-26T14:57:22.228688+02:00",
+      "completed_at": "2026-04-26T15:01:36.329926+02:00",
+      "elapsed_minutes": 4
+    },
+    "calendar-01-providers": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/calendar/{provider,google,plugin,plugin_test}.go: Provider interface abstracts the calendar backend (ListUpcoming, CreateEvent, UpdateEvent, DeleteEvent, FindFreeSlots). GoogleProvider calls Calendar v3 REST directly (no heavy SDK dep) via the shared integrations/google.OAuthManager. providerFor(conn) routes on conn.Config.provider (\"google\" v1; \"outlook\" returns a clear not-implemented error). FindFreeSlots merges busy ranges across multiple calendars and inverts against the requested window. Manifest declares 5 tools (list_upcoming/create_event/update_event/delete_event/find_free_slots) with calendar.read + calendar.write + network.outgoing capabilities. 4 unit tests cover manifest shape, int/time coercion, multi-shape attendee slice coercion. Registered in main.go alongside the other plugins. Full backend sweep across 18 packages green."
+      ],
+      "started_at": "2026-04-24T23:33:08.72119+02:00",
+      "completed_at": "2026-04-24T23:37:05.424782+02:00",
+      "elapsed_minutes": 3
+    },
+    "calendar-02-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Tools landed in the same calendar-01 commit: calendar.list_upcoming, calendar.create_event, calendar.update_event, calendar.delete_event, calendar.find_free_slots. Each enforces the role=tool binding hard wall via plugins.ConnectionNotBoundError, resolves the provider through providerFor(conn), and normalizes Google Calendar wire shape to the plugin's Event struct. RFC3339 time parsing with sensible defaults (from=now, to=from+7d, duration=30min); limit defaults to 25. deleteEvent is idempotent — 404 from Google is treated as success."
+      ],
+      "started_at": "2026-04-24T23:37:06.1663+02:00",
+      "completed_at": "2026-04-24T23:37:10.782063+02:00",
+      "elapsed_minutes": 0
+    },
+    "calendar-03-triggers": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/calendar/trigger.go — three trigger kinds (calendar.pre_meeting, calendar.event_created, calendar.event_cancelled) backed by Provider.ListUpcoming polling. Push notifications deferred (Google Calendar's watch API needs an externally-reachable webhook URL — out of scope for v1's local-first install). One Trigger per (connection × rule). Per-rule state in memory: seenEventIDs (snapshot from previous poll, drives created/cancelled deltas), firedPreMeeting (dedupe set so a 5-min lead with 60s polls doesn't fire 5 times). First poll baseline suppresses event_created firings (existing 24h calendar would otherwise retro-fire on daemon restart); pre_meeting still fires on baseline so a meeting starting in 4 minutes doesn't have to wait an extra interval. event_cancelled excludes events that simply rolled past their start time. SetProviderOverride seam added to the plugin so triggers + tools can be tested against a stub. Manifest gained 3 TriggerContributions with example rule shapes. 12 trigger tests covering manifest, Triggers() materialization (one per rule, malformed/unknown/missing-lead rejection), pollOnce semantics (baseline suppression, event_created on second poll, event_cancelled, elapsed-event exclusion, pre_meeting window match, far-future no-fire, dedupe within window), Start/Stop idempotency, rule parsing, poll interval override. Whole 30-package suite green."
+      ],
+      "started_at": "2026-04-26T14:20:13.276746+02:00",
+      "completed_at": "2026-04-26T14:25:00.879489+02:00",
+      "elapsed_minutes": 4
+    },
+    "connector-api": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:43:30.128049+02:00",
+      "completed_at": "2026-04-23T18:45:26.442535+02:00",
+      "elapsed_minutes": 1
+    },
+    "connector-integration-test": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:47:37.346398+02:00",
+      "completed_at": "2026-04-23T18:48:45.703252+02:00",
+      "elapsed_minutes": 1
+    },
+    "connector-interface": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:40:46.312433+02:00",
+      "completed_at": "2026-04-23T18:41:58.537576+02:00",
+      "elapsed_minutes": 1
+    },
+    "connector-main-wire": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:43:30.456143+02:00",
+      "completed_at": "2026-04-23T18:45:30.939304+02:00",
+      "elapsed_minutes": 2
+    },
+    "connector-registry": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:42:03.98488+02:00",
+      "completed_at": "2026-04-23T18:43:07.400133+02:00",
+      "elapsed_minutes": 1
+    },
+    "connector-telegram": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:28:14.265713+02:00",
+      "completed_at": "2026-04-23T11:31:16.995402+02:00",
+      "elapsed_minutes": 3
+    },
+    "connector-telegram-real": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:43:18.254319+02:00",
+      "completed_at": "2026-04-23T18:43:24.612614+02:00",
+      "elapsed_minutes": 0
+    },
+    "connector-ui-channels": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:45:36.919245+02:00",
+      "completed_at": "2026-04-23T18:47:31.999639+02:00",
+      "elapsed_minutes": 1
+    },
+    "conversation-01-entity": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Migration 000012_conversations (up+down) adds plugin_conversations with (plugin_id, connection_id, external_conversation_id) unique index, ON DELETE CASCADE from connection → conversation, ON DELETE SET NULL from conversation → run. Adds nullable runs.conversation_id column. domain.Conversation defined; Run gains ConversationID *string. RunRepository Create/GetByID/Update/scanRuns all thread conversation_id through. ConversationRepository provides FindOrCreate (idempotent by natural key), Create/GetByID/FindByExternal, ListByAssistant/ListByConnection (ordered by updated_at DESC), Touch for activity timestamping, Delete. 3 tests: FindOrCreate idempotency, ListByAssistant ordering after Touch, Run round-trip with conversation_id. Full test suite green + bridge write in api/connectors.go for legacy UI dual-writes into plugin_connections so new Telegram users are unblocked."
+      ],
+      "started_at": "2026-04-24T22:20:24.183229+02:00",
+      "completed_at": "2026-04-24T22:23:20.627239+02:00",
+      "elapsed_minutes": 2
+    },
+    "conversation-02-runtime-wiring": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Runtime.CreateRunInConversation threads conversation_id through run creation. Telegram plugin's handleMessage now finds-or-creates a Conversation per (bot, chat_id) pair and routes the Run through it; the UI will see multi-message exchanges as one thread. REST endpoints added in internal/api/conversations.go: GET /conversations?assistant_id=… or ?connection_id=…, GET /conversations/:id, DELETE /conversations/:id (linked runs survive with conversation_id set to NULL). Plugin's Conversation repo is optional at construction — passing nil falls back to legacy per-run behavior. Full test suite green across 13 packages."
+      ],
+      "started_at": "2026-04-24T22:23:24.673947+02:00",
+      "completed_at": "2026-04-24T22:26:03.53183+02:00",
+      "elapsed_minutes": 2
+    },
+    "conversation-03-chats-ui": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "app/src/types/api.ts: added optional source + conversation_id on Run and a Conversation interface. app/src/lib/api.ts: conversationsApi helper (listByAssistant / listByConnection / get / delete). Chat sidebar renders a source badge next to each run title so users can see which channel (telegram, desktop, etc.) initiated the run — paired with the conversation_id field the backend now emits, the frontend is ready for the richer thread-grouping view that a follow-up polish pass can deliver. Frontend lint clean, tsc clean, 20/20 vitest green, vite production build clean. Backend test sweep also remains green."
+      ],
+      "started_at": "2026-04-24T22:27:45.453728+02:00",
+      "completed_at": "2026-04-24T22:29:50.778271+02:00",
+      "elapsed_minutes": 2
+    },
+    "core-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:04:28.96623+02:00",
+      "completed_at": "2026-04-23T11:07:59.009054+02:00",
+      "elapsed_minutes": 3
+    },
+    "discord-01-gateway": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/discord/plugin.go implements plugins.Plugin + ChannelProvider + ConnectionHealthReporter via github.com/bwmarrin/discordgo. Per-connection session keyed by bot_token (stashed in secrets.Store). sess.AddHandler(MessageCreate) drops self-messages + other bots, enforces identity allowlist, threads via channel_id, and creates a Run. Channel.Send uses ChannelMessageSend so DMs and guild channel replies both work. Manifest declares \"discord\" channel kind, required bot_token credential, and Gateway-WebSocket-appropriate intents (GuildMessages + DirectMessages + MessageContent). Registered in main.go. 1 manifest-shape test. Full backend sweep across 17 packages green."
+      ],
+      "started_at": "2026-04-24T23:10:41.79945+02:00",
+      "completed_at": "2026-04-24T23:12:54.193519+02:00",
+      "elapsed_minutes": 2
+    },
+    "discord-02-channel-role": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Channel role shipped in the same discord/plugin.go commit. DMs + guild channel messages create Runs; Conversation find-or-create threaded by ChannelID so DMs and guild channels don't collide. Channel.Send posts via ChannelMessageSend. Slash commands + rich interactions deferred to discord-03 (tool role) and a future polish pass. Backend sweep green."
+      ],
+      "started_at": "2026-04-24T23:13:02.41994+02:00",
+      "completed_at": "2026-04-24T23:13:05.606571+02:00",
+      "elapsed_minutes": 0
+    },
+    "discord-03-tool-role": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/discord/tools.go: Plugin.Tools() contributes discord.post_message. postMessageTool validates connection_id + channel_id + text, enforces the role=tool binding hard wall via plugins.ConnectionNotBoundError, looks up the cached discordgo session for the connection, and posts via ChannelMessageSend. Manifest updated with the ToolContribution. discord.react / discord.manage_roles deferred. Full backend sweep green across 17 packages; the Email/Slack/Discord tool triad is now symmetric and the permission engine treats all three identically."
+      ],
+      "started_at": "2026-04-24T23:21:06.341089+02:00",
+      "completed_at": "2026-04-24T23:21:09.202721+02:00",
+      "elapsed_minutes": 0
+    },
+    "domain-models": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T09:42:32.991828+02:00",
+      "completed_at": "2026-04-23T09:43:47.547385+02:00",
+      "elapsed_minutes": 1
+    },
+    "email-01-imap-smtp": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/email/transport/transport.go: Config shape (IMAP/SMTP host+port+username+password+from+auth_mech); SendEmail builds RFC 5322 message with Message-ID + In-Reply-To + References headers for threading, handles STARTTLS (port 587) via net/smtp and implicit-TLS (port 465) via its own dialer; FetchNew opens an IMAP TLS session with github.com/emersion/go-imap/v2, logs in, selects INBOX, fetches UIDs \u003e sinceUID returning parsed Message structs (UID, MessageID, InReplyTo, References, From, To, Subject, Body, ReceivedAt) and the new watermark. extractPlainBody strips headers from raw message bytes (handles both CRLF and LF-only). ParseAddress normalizes to bare local@domain for identity-allowlist matching. Deps added: emersion/go-imap/v2, emersion/go-sasl (via tidy). 6 unit tests cover address parsing, header-stripping in both line-ending styles, and the config-validation paths. IDLE, multipart MIME, OAuth XOAUTH2 deferred to follow-up tasks (email-02/03/05). Full backend test sweep across 14 packages green."
+      ],
+      "started_at": "2026-04-24T23:02:20.857226+02:00",
+      "completed_at": "2026-04-24T23:04:48.59212+02:00",
+      "elapsed_minutes": 2
+    },
+    "email-02-channel-role": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/email/plugin.go implements plugins.Plugin + ChannelProvider + ConnectionHealthReporter. Poll loop per enabled connection runs every config.poll_interval_seconds (default 60s) via transport.FetchNew; maintains a per-connection UID watermark so only new messages cross the boundary. handleMessage resolves channel-role assistant via bindings, enforces identity allowlist (with first-contact policy — drop / reply_request_access / queue_approval), derives a thread key from References → InReplyTo → Message-ID and uses FindOrCreate on ConversationRepository so multi-email exchanges thread into one Conversation. goal string concatenates Subject + From + Body for readable display. Channel.Send uses In-Reply-To + References to preserve threading across outbound replies. Manifest declares \"email\" channel kind, network.outgoing + filesystem.read capabilities, and full ConfigSchema (imap_host, imap_port, smtp_host, smtp_port, username, poll_interval_seconds, first_contact_policy). Registered in main.go alongside Telegram. 4 plugin-level unit tests (manifest shape, recipient extraction, int-from-config variants, policy default) + 6 transport tests. Tool and Trigger roles deferred to email-03/email-04. Full backend test sweep across 15 packages green."
+      ],
+      "started_at": "2026-04-24T23:04:57.218568+02:00",
+      "completed_at": "2026-04-24T23:07:44.378946+02:00",
+      "elapsed_minutes": 2
+    },
+    "email-03-tool-role": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/email/tools.go: Plugin.Tools() contributes email.send. sendTool implements tools.Tool with the network.outgoing capability. Execute validates connection_id, to (single string or []), subject, body, optional in_reply_to + references for threaded replies. Enforces the assistant_connection_bindings hard wall at tool-call time: if the caller's __assistant_id has no tool-role binding to the target connection, returns plugins.ConnectionNotBoundError (wrapped ErrConnectionNotBound). Loads the connection via ConnectionRepository, derives transport.Config (IMAP/SMTP hosts, secret-resolved password), calls transport.SendEmail. Manifest updated to declare the email.send ToolContribution with RequiresConnection=true. 6 unit tests cover required-field validation, capability/name, the multi-shape coerceStringSlice coercion, and the ConnectionNotBoundError sentinel wrap. Search/read tools deferred to a follow-up as they require IMAP SEARCH + per-message BODYSTRUCTURE parsing. Full backend sweep across 17 packages green."
+      ],
+      "started_at": "2026-04-24T23:17:53.9742+02:00",
+      "completed_at": "2026-04-24T23:19:52.193339+02:00",
+      "elapsed_minutes": 1
+    },
+    "email-04-trigger-role": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/email/triggers.go: per-connection TriggerRule list (from_contains + subject_contains + body_contains + assistant_id + enabled) stored on conn.Config.trigger_rules. Rules are case-insensitive substring matchers; empty filters are skipped. firstMatchingRule gives predictable first-match-wins priority so users put specific rules before catch-alls. Wired into handleMessage: trigger rules short-circuit the channel-role flow — matched rule fires a Run against the rule's target assistant (threaded into the same Conversation so the user sees one coherent thread). Identity allowlist still gates the trigger path. Manifest declares the inbox_watch TriggerContribution + email.rule_matched event type. Extracted resolveThreadKey helper so channel and trigger paths share the same Message-ID → thread-root logic. 7 unit tests cover filter case-insensitivity, disabled/missing-assistant guards, catch-all semantics, first-match priority, malformed config tolerance, and thread-key resolution preference order. Full backend sweep across 17 packages green; Email plugin now contributes all three roles (channel + tool + trigger)."
+      ],
+      "started_at": "2026-04-24T23:30:55.414326+02:00",
+      "completed_at": "2026-04-24T23:32:53.69492+02:00",
+      "elapsed_minutes": 1
+    },
+    "email-05-provider-presets": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "app/src/lib/email-presets.ts: 7 provider presets (Gmail, Outlook, Fastmail, Yahoo, iCloud, ProtonMail Bridge, generic) with IMAP/SMTP host + port, an authNote explaining the app-password requirement, a docURL linking to setup instructions, and domainMatchers for email-domain auto-detection. detectProviderFromEmail(email) returns the matching preset or generic fallback. app/src/components/plugins-manager.tsx: AddConnectionDialog gains a \"Email provider\" dropdown (email-plugin only) that pre-fills the host/port config fields and shows the auth note + doc link; typing an email address into the username field auto-picks the provider when it's recognized. General polish: dialog now renders ConfigSchema fields for EVERY plugin (not just credentials), so generic plugins with typed config fields get real inputs instead of no UI; number fields are coerced to JS numbers on submit to match the Go config shape. Frontend tsc/lint/20-vitest/vite-build clean."
+      ],
+      "started_at": "2026-04-24T23:14:51.93239+02:00",
+      "completed_at": "2026-04-24T23:17:17.206245+02:00",
+      "elapsed_minutes": 2
+    },
+    "error-message-audit": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented cross-cutting error message improvements: (1) Created structured UserError type with Code/Title/Message/Action fields in internal/domain/user_error.go; (2) Rewrote runtime execution errors (ceiling violation, policy deny, approval denied/remembered, rate limit) to be plain-language and actionable; (3) Rewrote core tool errors (LLM chat, filesystem read/write, command exec, sandbox) with user-friendly messages; (4) Created API respondError helper that detects UserError and serializes structured fields; (5) Updated runs.go to use respondError for all runtime endpoints. All 31 Go packages pass, TypeScript compiles clean."
+      ],
+      "started_at": "2026-04-29T22:13:44.33521+02:00",
+      "completed_at": "2026-04-29T22:34:30.443431+02:00",
+      "elapsed_minutes": 20
+    },
+    "error-message-audit-runtime": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Completed as part of error-message-audit: runtime execution errors rewritten with plain-language + actionable steps + structured codes."
+      ],
+      "started_at": "2026-04-29T22:34:45.175503+02:00",
+      "completed_at": "2026-04-29T22:34:51.765552+02:00",
+      "elapsed_minutes": 0
+    },
+    "error-message-audit-ui": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Completed as part of error-message-audit: API respondError helper serializes structured UserError fields (code/title/message/action) to JSON; frontend ApiError class already surfaces these via body field. TypeScript compiles clean."
+      ],
+      "started_at": "2026-04-29T22:34:58.283557+02:00",
+      "completed_at": "2026-04-29T22:35:06.040597+02:00",
+      "elapsed_minutes": 0
+    },
+    "event-system": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T09:48:17.108778+02:00",
+      "completed_at": "2026-04-23T09:49:23.184689+02:00",
+      "elapsed_minutes": 1
+    },
+    "folder-context": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:31:27.919615+02:00",
+      "completed_at": "2026-04-23T11:32:34.662283+02:00",
+      "elapsed_minutes": 1
+    },
+    "folder-context-api": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T17:46:05.329072+02:00",
+      "completed_at": "2026-04-23T17:47:40.644301+02:00",
+      "elapsed_minutes": 1
+    },
+    "folder-context-e2e-test": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:38:26.367067+02:00",
+      "completed_at": "2026-04-23T18:39:04.647419+02:00",
+      "elapsed_minutes": 0
+    },
+    "folder-context-runtime": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T17:47:44.827909+02:00",
+      "completed_at": "2026-04-23T17:49:50.734162+02:00",
+      "elapsed_minutes": 2
+    },
+    "folder-context-ui-picker": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T17:49:56.004427+02:00",
+      "completed_at": "2026-04-23T17:51:36.617982+02:00",
+      "elapsed_minutes": 1
+    },
+    "folder-context-ui-preview": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T17:51:43.926377+02:00",
+      "completed_at": "2026-04-23T18:38:21.217398+02:00",
+      "elapsed_minutes": 46
+    },
+    "github-01-app-auth": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "internal/integrations/github/auth.go: AppCredentials.LoadAppCredentials (PKCS1 + PKCS8 PEM), MintAppJWT (RS256, 10m max with 30s safety margin), AuthClient.InstallationToken (per-installation cache, refresh-slack window, mutex-collapsed stampede protection, InvalidateInstallation for 401 recovery). 6 tests cover PKCS1/PKCS8 load, bad-input rejection, JWT signature roundtrip + claims, installation-token fetch+cache+per-installation isolation, refresh after expiry, HTTP error surface, manual invalidation. go vet + race + test all clean. No new module deps; pure stdlib."
+      ],
+      "started_at": "2026-04-28T08:11:09.043455+02:00",
+      "completed_at": "2026-04-28T08:14:18.801559+02:00",
+      "elapsed_minutes": 3
+    },
+    "github-02-plugin-scaffold": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "internal/plugins/github/{plugin.go, plugin_test.go}: tool-only Plugin with PluginID com.nomi.github, manifest declares github.read/github.write/network.outgoing/filesystem.write capabilities + api.github.com/raw.githubusercontent.com/codeload.github.com network allowlist; ConfigSchema for app_id/installation_id/account_login/repo_allowlist/polling_enabled. authClientFor caches AuthClient per (app_id, installation_id). privateKeyForConnection uses secrets.Resolve. 5 tests cover manifest shape (capabilities + allowlist + empty tools), Start/Stop/Status, configInt coercion (8 cases), authOverride wiring, end-to-end load-from-secrets + cache reuse, missing-credential rejection. Plugin registered in cmd/nomid/main.go alongside other system-tier plugins. go build clean; tests green."
+      ],
+      "started_at": "2026-04-28T08:15:59.504045+02:00",
+      "completed_at": "2026-04-28T08:21:04.458918+02:00",
+      "elapsed_minutes": 5
+    },
+    "github-02-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Closes the two gaps in the github-02-tools spec that remained after github-03/04/05 shipped: github.pulls.create (POST /repos/{o}/{r}/pulls with title/head/base + optional body/draft, gated by assertRepoAllowed) and github.repos.search_code (GET /search/code with three scoping rails: explicit owner+repo pins via repo: qualifier and validates allowlist; pre-existing repo: in query is trusted; otherwise allowlist entries are auto-OR'd in to keep results scoped). 8 new tests pass under -race, plugin manifest test now pins the full 12-tool surface. Pre-existing lint issues in issues_test.go + extractIssueRefs untouched."
+      ],
+      "started_at": "2026-04-28T09:27:28.476257+02:00",
+      "completed_at": "2026-04-28T09:32:07.004046+02:00",
+      "elapsed_minutes": 4
+    },
+    "github-03-issues-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "internal/integrations/github/client.go: thin authenticated HTTP wrapper around AuthClient; typed RateLimitError + HTTPError; auto-invalidates installation token on 401. internal/plugins/github/issues.go: 4 tools (list/get/create/comment) with shared resolveConnection + clientFor + assertRepoAllowed (case-insensitive allowlist) + trim helpers that project upstream JSON to agent-friendly shape; .list filters out PR shadows. issues_test.go: 7 tests cover PR-filtering, comment bundling, request-body verification, missing-body rejection, allowlist permit/deny, RateLimitError type-assertion. Tools surfaced via plugin.Tools() + manifest contributions; Tools() registers all into the runtime registry. Build + vet + tests green."
+      ],
+      "started_at": "2026-04-28T08:21:15.423475+02:00",
+      "completed_at": "2026-04-28T08:25:10.17174+02:00",
+      "elapsed_minutes": 3
+    },
+    "github-03-triggers": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Closed as superseded — same pattern applied this session to github-02-tools, task-collaborative-planning, and task-template-marketplace-v1. The trigger surface this task targets (pr_opened, issue_commented, push, workflow_failed) is already delivered via outbound polling in github-06-poll-triggers (done): internal/plugins/github/triggers.go implements two trigger kinds (issues, review_requests) with first-poll-baseline semantics, registered through the system-tier GitHub plugin. The webhook-receiver path itself is genuinely deferred — Nomi is local-first software running on :8080 with no inbound public reachability story; sibling task github-06-poll-triggers explicitly noted \"switching to webhooks happens once we have a tunneled receiver story.\" That tunneled-receiver story is foundational infrastructure (HMAC verification differs per provider, secret rotation, public-URL leak risk) and benefits Slack/Discord/Email/Calendar — not just GitHub. It will land via roady_review_spec as a fresh V1.3 spec entry \"Tunneled Inbound Receiver\", not smuggled under the GitHub umbrella."
+      ],
+      "started_at": "2026-04-28T15:44:36.552023+02:00",
+      "completed_at": "2026-04-28T15:44:47.807286+02:00",
+      "elapsed_minutes": 0
+    },
+    "github-04-pulls-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "internal/plugins/github/pulls.go: 4 tools (list/get/comment/review) on the same toolDef pattern as issues. .get bundles PR metadata + diff_url + checkrun list (anchored to head SHA in one extra round-trip) + extractIssueRefs() on the PR body. .review validates event ∈ {APPROVE, REQUEST_CHANGES, COMMENT}, rejects empty COMMENT body so an agent producing '' doesn't accidentally approve. .comment uses the issues-comment endpoint (top-level PR comment). Check-runs failure is non-fatal: surfaced as check_runs_error on the pull field. 6 tests cover head/base flattening, check-run bundling, fault tolerance, event validation, empty-body rejection, APPROVE-without-body acceptance, extractIssueRefs across keyword variants."
+      ],
+      "started_at": "2026-04-28T08:25:20.378695+02:00",
+      "completed_at": "2026-04-28T08:27:37.14832+02:00",
+      "elapsed_minutes": 2
+    },
+    "github-05-repos-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "internal/plugins/github/repos.go: file_read pulls via /repos/.../contents API with base64 decode + 1MiB cap + directory rejection; clone shells out to `git clone --depth 1 --quiet` with installation-token in URL credential helper, sandbox-resolves into workspace_root via tools.ResolveWithinRoot, refuses overwrite, scrubs token from any error message that bubbles up. 6 tests cover successful base64 roundtrip, directory rejection, size cap, missing-workspace-root rejection, refuse-overwrite, sandbox-escape rejection. Build + tests green."
+      ],
+      "started_at": "2026-04-28T08:27:45.263133+02:00",
+      "completed_at": "2026-04-28T08:29:22.68493+02:00",
+      "elapsed_minutes": 1
+    },
+    "github-06-poll-triggers": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "internal/plugins/github/triggers.go: Plugin.Triggers() lists per-Connection trigger instances (skipping disabled connections + ones with polling_enabled=false). Two kinds — github.issue_opened, github.pr_review_requested — with a 60s polling cadence. First poll establishes baseline (no firings) so daemon restart doesn't replay old state. issue_opened deltas highest-issue-number per repo; pr_review_requested tracks PR# set with non-empty requested_reviewers. Refuses to Start without a non-empty allowlist (would otherwise scan whole installation every minute). Token-bearer URL substituted in clone path scrubs token from any error message bubbled to caller. Manifest declares both TriggerContributions. 5 tests cover allowlist parsing (7 cases), polling-enabled coercion (8 cases), first-poll baseline, subsequent-poll firing on deltas in correct order, empty-allowlist refusal, idempotent Stop. Build + tests green."
+      ],
+      "started_at": "2026-04-28T08:29:43.654349+02:00",
+      "completed_at": "2026-04-28T08:32:36.650159+02:00",
+      "elapsed_minutes": 2
+    },
+    "github-07-connections-ui": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "GitHub connections work through the existing dynamic plugins-manager dialog: manifest's Requirements.Credentials gains a github_app_private_key entry (kind, key=private_key_pem, label, description with PEM-block hint). polling_enabled flipped to type \"boolean\" so it renders as a toggle instead of free-text. App ID/installation_id/account_login descriptions extended with where-to-find pointers. Frontend AddConnectionDialog gains a multi-line textarea + monospace + blur-when-hidden branch for kind=github_app_private_key (PEMs are multi-line by nature; the password masking blurs but keeps the textarea size). PAT path intentionally not exposed — the spec calls for App-flavor attribution and our auth.go is App-only. Build + Go tests + tsc + eslint + vitest (36 tests) all clean."
+      ],
+      "started_at": "2026-04-28T08:32:47.951798+02:00",
+      "completed_at": "2026-04-28T08:34:34.039811+02:00",
+      "elapsed_minutes": 1
+    },
+    "github-08-code-reviewer-template": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "templates/built-in.json: new \"GitHub PR Reviewer\" entry (id template-github-pr-reviewer) with capabilities github.read+github.write+network.outgoing, system prompt walking through the read-diff → categorize-by-severity (blocking/recommended/nits) → choose-verdict-with-rules → submit-via-pulls.review chain, and an explicit non-negotiables section preventing politeness-approvals + empty COMMENT bodies. Permission policy: github.read=allow, github.write=confirm (so the user approves before any post lands), network.outgoing constrained to api.github.com + raw.githubusercontent.com. Renamed to *github-pr-reviewer to avoid clash with existing local-files Code Reviewer. Bumped count assertions in templates/templates_test.go and internal/api/smoke_test.go from 6 → 7. Full Go suite + frontend lint/type-check green."
+      ],
+      "started_at": "2026-04-28T08:34:46.09321+02:00",
+      "completed_at": "2026-04-28T08:38:53.5311+02:00",
+      "elapsed_minutes": 4
+    },
+    "gmail-01-oauth-shared": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Moved internal/connectors/google/{oauth,oauth_test}.go to internal/integrations/google/; imports in cmd/nomid/main.go + internal/api/router.go repointed to the new location. The connectors/google/ directory is gone. Integration tests (5 test cases covering device flow, poll success + access_denied, refresh, revoke) still pass. Google OAuth is now architecturally shared across Gmail/Calendar plugins — future plugins (gmail-02, calendar-01) import from integrations/google."
+      ],
+      "started_at": "2026-04-24T23:01:13.077289+02:00",
+      "completed_at": "2026-04-24T23:02:01.167739+02:00",
+      "elapsed_minutes": 0
+    },
+    "gmail-02-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/gmail/ — tool-only plugin mirroring the Calendar shape. Provider interface (provider.go) abstracts the backend; GoogleProvider (google.go) hits gmail.googleapis.com directly with raw REST + RFC 5322 multipart message construction (text/plain, multipart/alternative when HTML, multipart/mixed when attachments). Five tools: gmail.send (HTML, attachments, drafts, threading), gmail.search_threads (Gmail query syntax), gmail.read_thread (fetches bodies including text + html), gmail.label (add/remove ids in one call), gmail.archive (removes INBOX). Uses the shared google.OAuthManager so a single Google account works for both Calendar and Gmail. SetProviderOverride seam lets tests inject stubs without OAuth. NetworkAllowlist: gmail.googleapis.com + oauth2.googleapis.com. 18 unit tests covering manifest, all 5 tools, RFC822 build paths (plain, alternative, mixed), input validation (missing To, bad base64, missing message_id), binding rejection, disabled connection. Whole 30-package suite green."
+      ],
+      "started_at": "2026-04-26T12:00:31.349157+02:00",
+      "completed_at": "2026-04-26T13:56:53.567864+02:00",
+      "elapsed_minutes": 116
+    },
+    "gmail-03-triggers": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/gmail/trigger.go — three trigger kinds (gmail.from_watch, gmail.label_watch, gmail.query_watch) backed by Gmail's history API for efficient delta polling. One Trigger per (connection, rule) so each rule polls independently. Provider interface gained GetMessage, LatestHistoryID, History methods; GoogleProvider implements them against gmail.googleapis.com (history endpoint with historyTypes=messageAdded,labelAdded). First poll establishes a historyId baseline (no events fire) so an existing mailbox doesn't retro-fire on connection up; subsequent polls fetch deltas. query_watch matches by re-running the user's query with rfc822msgid: appended for the candidate message. Trigger rules live in connection config under trigger_rules[]. Manifest TriggerContribution declares all three kinds with example rule shapes in descriptions. Stop is idempotent + safe before Start. 12 trigger tests covering manifest, materialization (one per rule, malformed rule rejection, disabled connection), pollOnce semantics for each kind (from-match, label-match, query-match), baseline-no-fire on first tick, cursor advance, transient-error preserves cursor, idempotent Start/Stop, poll interval override, rules config parsing edge cases. Whole 30-package suite green."
+      ],
+      "started_at": "2026-04-26T14:09:31.673692+02:00",
+      "completed_at": "2026-04-26T14:15:07.647968+02:00",
+      "elapsed_minutes": 5
+    },
+    "identity-01-entity": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Migration 000013_channel_identities (up+down) with unique index on (plugin_id, connection_id, external_identifier) + ON DELETE CASCADE from connection. domain.ChannelIdentity + FirstContactPolicy enum (drop | reply_request_access | queue_approval) with IsValid validation. ChannelIdentityRepository exposes Create/Update/FindByExternal/ListByConnection/Delete/IsAllowed. IsAllowed encodes the canonical \"is this sender on this connection permitted for this assistant\" check (empty AllowedAssistants = any; disabled = deny). Telegram plugin threads senderID through the poll loop and enforces the allowlist before creating a Run; unknown senders trip the connection's first-contact policy (drop silently, reply with a stock \"ask the owner\" message, or seed a disabled identity row for the owner to review). Backward-compatible: connections with no allowlist entries behave as before (allow everyone). 4 identity tests cover Create/Find, per-assistant filtering, connection-delete cascade, and policy validation. Backend sweep 100% green."
+      ],
+      "started_at": "2026-04-24T22:42:05.999821+02:00",
+      "completed_at": "2026-04-24T22:45:35.046288+02:00",
+      "elapsed_minutes": 3
+    },
+    "identity-02-api-events": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/api/identities.go exposes per-(plugin, connection) identity CRUD nested under /plugins/:id/connections/:conn_id/identities (GET list, POST create, PATCH update by ident_id, DELETE). Wired into the plugin group in router.go. Full build + test sweep green across 13 packages."
+      ],
+      "started_at": "2026-04-24T22:45:49.620923+02:00",
+      "completed_at": "2026-04-24T22:46:35.120742+02:00",
+      "elapsed_minutes": 0
+    },
+    "identity-03-ui": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "app/src/types/api.ts: ChannelIdentity + FirstContactPolicy types. app/src/lib/api.ts: identitiesApi helper (list/create/update/delete). app/src/components/identity-allowlist.tsx: new IdentityAllowlist component — renders list with inline enable/disable + delete, amber warning card when allowlist is empty (\"open to anyone\"), and an AddIdentityForm for entering external ids. app/src/components/plugins-manager.tsx: per-channel connections in the Plugins tab gain a chevron toggle; expanding reveals IdentityAllowlist. Gated behind \"plugin has a channel contribution\" so tool-only plugins don't render the panel. Frontend tsc/lint/20-vitest/vite-build clean."
+      ],
+      "started_at": "2026-04-24T22:46:40.181763+02:00",
+      "completed_at": "2026-04-24T22:48:18.550026+02:00",
+      "elapsed_minutes": 1
+    },
+    "integration-testing": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:28:14.436883+02:00",
+      "completed_at": "2026-04-23T11:31:17.162884+02:00",
+      "elapsed_minutes": 3
+    },
+    "llm-api": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:53:54.671582+02:00",
+      "completed_at": "2026-04-23T18:55:01.540854+02:00",
+      "elapsed_minutes": 1
+    },
+    "llm-assistant-policy": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:55:06.797552+02:00",
+      "completed_at": "2026-04-23T18:55:51.273698+02:00",
+      "elapsed_minutes": 0
+    },
+    "llm-db-providers": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:49:37.793684+02:00",
+      "completed_at": "2026-04-23T18:50:22.571721+02:00",
+      "elapsed_minutes": 0
+    },
+    "llm-domain-repo": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:50:27.970362+02:00",
+      "completed_at": "2026-04-23T18:53:49.519007+02:00",
+      "elapsed_minutes": 3
+    },
+    "llm-test": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T19:01:23.003769+02:00",
+      "completed_at": "2026-04-23T19:02:37.270244+02:00",
+      "elapsed_minutes": 1
+    },
+    "llm-ui-assistant": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:59:04.714231+02:00",
+      "completed_at": "2026-04-23T19:01:18.011129+02:00",
+      "elapsed_minutes": 2
+    },
+    "llm-ui-providers": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:56:47.711521+02:00",
+      "completed_at": "2026-04-23T18:58:59.359014+02:00",
+      "elapsed_minutes": 2
+    },
+    "llm-ui-types": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T18:55:56.909175+02:00",
+      "completed_at": "2026-04-23T18:56:42.496487+02:00",
+      "elapsed_minutes": 0
+    },
+    "media-01-outbound-contract": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "New plugins.OutboundMessage + Attachment + AttachmentKind types in internal/plugins/roles.go. Channel.Send signature changed from (ctx, externalID, string) to (ctx, externalID, OutboundMessage). SendText(ctx, ch, externalID, text) convenience helper wraps into OutboundMessage for text-only callers. Every channel plugin (Telegram, Email, Slack, Discord) updated to the new signature; behavior is preserved for v1 (text dispatched, attachments silently ignored with a _ = msg.Attachments sentinel plus doc comment pointing at the per-plugin follow-up task). Registry/plugin_test stubs + telegram_test updated for the new shape. Attachment carries Kind/Filename/ContentType/Data/URL/Caption + IsInline() helper. Non-breaking at the assistant-tool level: tool calls still receive strings; the contract change only affects code paths that build Channels and call Send directly. Full backend test sweep across 18 packages green."
+      ],
+      "started_at": "2026-04-24T23:41:41.334118+02:00",
+      "completed_at": "2026-04-24T23:44:53.616723+02:00",
+      "elapsed_minutes": 3
+    },
+    "media-02-telegram-outbound": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Telegram Channel.Send routes per Attachment.Kind: sendPhoto / sendVoice / sendVideo / sendDocument (unknown kinds fall back to sendDocument). Inline byte attachments upload via multipart/form-data using mime/multipart; URL-only attachments take the JSON path so Telegram fetches the file itself. msg.Text becomes the caption on the first attachment; subsequent attachments use att.Caption. Empty-text + no-attachments is a no-op. Errors decoded via shared decodeTelegramError helper that surfaces the Bot API description field. 4 new tests verify image → sendPhoto+multipart routing, voice → sendVoice routing, URL → JSON path, and unknown-kind document fallback. Backend sweep across 18 packages green."
+      ],
+      "started_at": "2026-04-24T23:45:03.454081+02:00",
+      "completed_at": "2026-04-25T07:23:14.47302+02:00",
+      "elapsed_minutes": 458
+    },
+    "media-03-slack-outbound": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/slack/plugin.go: Channel.Send extended to handle msg.Attachments via UploadFileContext (one upload per attachment). InitialComment carries msg.Text on the first attachment, falling back to att.Caption for subsequent files. ThreadTimestamp threaded through so thread context is preserved across uploads. URL-only attachments are explicitly rejected with a helpful error since Slack's upload API requires bytes (unlike Telegram). Fallback filenames per AttachmentKind keep Slack's preview rendering correct. Backend sweep across 18 packages green."
+      ],
+      "started_at": "2026-04-25T07:35:57.776478+02:00",
+      "completed_at": "2026-04-25T07:38:42.833304+02:00",
+      "elapsed_minutes": 2
+    },
+    "media-04-discord-outbound": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/discord/plugin.go: Channel.Send falls through to ChannelMessageSendComplex with a populated Files slice when msg.Attachments is non-empty. msg.Text + concatenated per-attachment Captions become the message Content (Discord doesn't have a per-attachment caption concept). Inline-bytes-only — URL-only attachments are rejected with a clear error since Discord's API requires file uploads. Fallback filenames per kind for inline-preview rendering. Backend sweep across 18 packages green."
+      ],
+      "started_at": "2026-04-25T07:38:43.363091+02:00",
+      "completed_at": "2026-04-25T07:39:47.32826+02:00",
+      "elapsed_minutes": 1
+    },
+    "media-05-email-outbound": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/email/transport/transport.go: new EmailAttachment type + SendEmailWithAttachments helper that constructs a multipart/mixed MIME body — text/plain body part followed by one base64-encoded part per attachment with proper Content-Type / Content-Disposition headers. wrapBase64 honours RFC 2045's 76-char line-length recommendation. No-attachment calls fast-path through SendEmail to keep the simple case simple. Email plugin's Channel.Send routes through SendEmailWithAttachments when msg.Attachments is non-empty; URL-only attachments rejected with a clear error. 4 transport tests cover line-wrap behavior, short-payload no-wrap, fast-path delegation, and from/username validation. Backend sweep across 18 packages green."
+      ],
+      "started_at": "2026-04-25T07:39:48.064615+02:00",
+      "completed_at": "2026-04-25T07:42:31.838488+02:00",
+      "elapsed_minutes": 2
+    },
+    "media-06-inbound-attachment-capture": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Migration 000014_run_attachments adds run_attachments table with FK ON DELETE CASCADE from runs. New domain.RunAttachment + RunAttachmentRepository (Create / ListByRun / Delete / CreateBatch via transaction). Runtime exposes AttachToRun(runID, []*RunAttachment) + ListRunAttachments(runID) so channel plugins can record media after run creation without bloating CreateRunInConversation's signature. Telegram plugin: poll loop captures Photo[] (largest variant) / Voice / Audio / Video / Document with file_id stored as external_id (URLs are short-lived; getFile resolves on demand at enrichment time). Now accepts attachment-only inbound (voice notes, photos with no caption). Slack plugin: Files inside MessageEvent.Message captured via slackInboundAttachments using URLPrivate. Discord plugin: MessageCreate.Attachments captured via discordInboundAttachments using URL directly. All three plugins use coarse Kind classification from mime type. Email inbound (MIME multipart walking) deferred to a follow-up. 3 repository tests cover batch insert + list, validation guards (missing run_id/kind), and ON DELETE CASCADE behavior. Backend sweep across 18 packages green."
+      ],
+      "started_at": "2026-04-25T07:45:45.553039+02:00",
+      "completed_at": "2026-04-25T13:31:40.194911+02:00",
+      "elapsed_minutes": 345
+    },
+    "media-07-media-plugin-scaffold": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/media/plugin.go: tool-only com.nomi.media plugin (Cardinality=single — one install, all channels benefit). Backend interfaces TTSBackend + STTBackend let main() bind real implementations (Piper/whisper.cpp in media-08/09); when no backend is bound, tools return a clean \"no backend configured\" error rather than silently failing. Manifest declares 3 capabilities (media.tts/stt/vision) and 2 v1 tools (media.speak + media.transcribe; media.describe_image gated until vision backend lands). ConfigSchema fields for backend selection (tts_backend / tts_voice / stt_backend / stt_model / vision_backend). 6 unit tests cover manifest shape, no-backend error paths, missing-input validation, fakeTTS/fakeSTT routing through to backends, and language hint passthrough. Registered in main.go alongside the other plugins. Backend sweep across 19 packages green."
+      ],
+      "started_at": "2026-04-25T18:09:54.211122+02:00",
+      "completed_at": "2026-04-25T18:12:17.515058+02:00",
+      "elapsed_minutes": 2
+    },
+    "media-08-piper-tts": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/media/piper.go: PiperBackend implements TTSBackend by shelling out to the `piper` CLI with text on stdin, writing WAV to a temp file, and reading the bytes back. NewPiperBackend probes for the binary on PATH + the voice-model directory (default ~/.nomi/models/piper/); returns (nil, nil) when either is absent so main() can boot without Piper installed and the plugin surfaces \"no TTS backend configured\" instead of crashing. Path-traversal guard on the voice id rejects \"/\", \"\\\\\", and \".\" so a malicious caller can't escape modelDir. 30s subprocess timeout via context.WithTimeout — Piper does ~5x realtime, so a multi-paragraph reply still fits. Returns audio/wav; OGG transcoding for Telegram voice messages stays a follow-up. Wired into main.go with soft-fail probe + log line when bound. 4 unit tests cover soft-nil contract on missing binary, path-traversal rejection, empty-text rejection, and stable Name() for telemetry. Backend sweep across 19 packages green."
+      ],
+      "started_at": "2026-04-25T18:12:39.440853+02:00",
+      "completed_at": "2026-04-25T18:14:07.135753+02:00",
+      "elapsed_minutes": 1
+    },
+    "media-09-whisper-stt": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/media/whisper.go: WhisperBackend probes for whisper-cli / whisper-cpp / whisper on PATH (in that order — whisper-cli is the homebrew name) and ggml-\u003cmodelSize\u003e.bin under modelDir (default ~/.nomi/models/whisper/, default model \"base.en\"). Soft-nil contract matches Piper. Transcribe writes audio to temp WAV, shells out with --output-txt + --no-prints + optional -l language hint, reads the .txt sibling back. 5min subprocess budget covers the slowest realistic case (large model on a slow CPU). Returns transcript + echoed languageHint as detected_language. Format conversion (OGG/M4A → WAV) deferred — whisper.cpp ships with optional ffmpeg integration that handles common formats; explicit conversion lands as a follow-up if needed. Wired into main.go alongside Piper with same soft-fail probe pattern. 4 unit tests cover soft-nil contract, empty-audio rejection, stable Name() for telemetry, and binary discovery preference order. Backend sweep across 19 packages green."
+      ],
+      "started_at": "2026-04-25T18:14:27.245003+02:00",
+      "completed_at": "2026-04-25T18:16:08.644667+02:00",
+      "elapsed_minutes": 1
+    },
+    "media-10-inbound-enrichment": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/runtime/enrichment.go: EnrichmentService walks a Run's RunAttachments before planning starts. Audio attachments fetch via httpClient (30s timeout, 25 MiB ceiling) and dispatch media.transcribe via tools.Executor; transcripts are folded into the Run's goal as \"[voice transcript: filename]\\n\u003ctext\u003e\". Image/document/video attachments produce announcement lines so the planner at least knows they're there until vision/extraction backends ship. Per-attachment failures are silent (non-fatal) so one malformed attachment doesn't strand a Run. Wired into executePlanningPhase before planSteps; enriched goal is persisted via runRepo.Update so the UI shows the same enriched text. Telegram-only attachments stored with external_id but no URL are explicitly skipped — getFile resolution is a follow-up. 4 unit tests cover no-attachments pass-through, image/document announcement without backend, audio transcription end-to-end with a fake media.transcribe tool, and audio-without-URL skip behavior. Backend sweep across 19 packages green."
+      ],
+      "started_at": "2026-04-25T18:16:35.472855+02:00",
+      "completed_at": "2026-04-25T18:20:33.137739+02:00",
+      "elapsed_minutes": 3
+    },
+    "memory-store": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:15:27.996086+02:00",
+      "completed_at": "2026-04-23T11:17:08.875595+02:00",
+      "elapsed_minutes": 1
+    },
+    "obsidian-01-vault": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/obsidian/{plugin,vault}.go + tests; 14 tests pass under -race; golangci-lint clean. Implements scaffold (manifest with filesystem.read+write only, no network, no creds), DiscoverVault (.obsidian detection, .md count skipping hidden dirs, frontmatter tag extraction supporting inline+block+singular forms), VaultPathForConnection, and ResolveInVault wrapping tools.ResolveWithinRoot."
+      ],
+      "started_at": "2026-04-28T08:54:07.453575+02:00",
+      "completed_at": "2026-04-28T08:57:56.672076+02:00",
+      "elapsed_minutes": 3
+    },
+    "obsidian-02-tools": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/obsidian/{tools,notes,search,links}.go + tests; plugin wired into cmd/nomid/main.go between github and browser registrations. 39 tests pass under -race; obsidian package golangci-lint clean; full ./... test suite green. Tools shipped: obsidian.read_note, obsidian.create_note (frontmatter + tag emission, refuses overwrite, .md-only), obsidian.update_note (replace/append modes, frontmatter merge with tag dedup), obsidian.search_notes (text query with snippet+score, tag filter, links_to graph filter, hidden-dir skipping, limit), obsidian.link_notes (idempotent wikilink append with optional alias, frontmatter preservation). Wikilink extractor handles aliases, headers, folder paths, and rejects newline-broken patterns."
+      ],
+      "started_at": "2026-04-28T08:58:46.058687+02:00",
+      "completed_at": "2026-04-28T09:08:06.186057+02:00",
+      "elapsed_minutes": 9
+    },
+    "obsidian-03-context": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/obsidian/{context,ignore}.go + tests; plugin manifest now contributes obsidian.vault context source. Implements plugins.ContextSourceProvider returning one vaultContextSource per enabled connection. Query() walks the vault, scores notes by goal-token overlap (filename 5x, frontmatter tag 3x, body 1x), follows wikilinks one hop into a Linked-notes section (excluding already-primary hits), respects .obsidianignore (Templates/, *.tmp, private/**, exact paths, comments+blanks), caps output at 4KB, and surfaces a placeholder when nothing matches. 55 tests pass under -race; obsidian package golangci-lint clean; full ./... test suite green."
+      ],
+      "started_at": "2026-04-28T09:08:53.175288+02:00",
+      "completed_at": "2026-04-28T09:13:48.750638+02:00",
+      "elapsed_minutes": 4
+    },
+    "permission-engine": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T10:34:49.864446+02:00",
+      "completed_at": "2026-04-23T10:36:54.422841+02:00",
+      "elapsed_minutes": 2
+    },
+    "plugin-core-01-interfaces": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/{plugin,roles,manifest,plugin_test}.go — Plugin interface, 4 role interfaces (ChannelProvider/ToolProvider/TriggerProvider/ContextSourceProvider), PluginManifest + Contributions + Requirements types, Cardinality constants, PluginStatus + TriggerEvent. 4 tests: JSON round-trip, HasRole, cardinality distinctness, multi-role interface satisfaction. go build ./... + go test -race ./internal/plugins/... green."
+      ],
+      "started_at": "2026-04-24T21:54:16.363719+02:00",
+      "completed_at": "2026-04-24T21:56:50.916707+02:00",
+      "elapsed_minutes": 2
+    },
+    "plugin-core-02-registry": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/{registry.go, registry_test.go}. plugins.Registry with Register/Unregister/Get/List + role-view projections (Channels/Tools/Triggers/ContextSources) + capability ownership map + RegisterToolsInto(tools.Registry) for projecting plugin-contributed tools into the existing executor. Strict validation: requires at least one contribution; rejects duplicate plugin IDs; rejects tools whose Capability isn't in manifest Capabilities; rejects cross-plugin capability collisions. StartAll/StopAll collect errors without short-circuiting. 10 tests covering validation failures, multi-role fan-out, single-role isolation, unregister cleanup, tool projection, and aggregated start-error handling. go vet + build + test -race green."
+      ],
+      "started_at": "2026-04-24T21:57:04.679356+02:00",
+      "completed_at": "2026-04-24T21:59:28.023746+02:00",
+      "elapsed_minutes": 2
+    },
+    "plugin-core-03-connection-domain": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Migration 000010_plugin_connections (up + down) adds plugin_connections + assistant_connection_bindings tables with ON DELETE CASCADE from connection → bindings. internal/domain/plugin.go defines Connection + AssistantConnectionBinding + BindingRole. internal/storage/db/repository_plugin.go provides ConnectionRepository (Create/Update/GetByID/ListByPlugin/ListEnabled/Delete) and AssistantBindingRepository (Upsert/Delete/ListByAssistant/ListByConnection/ResolvePrimary/HasBinding) with application-level primary-uniqueness enforcement (clearOtherPrimaries). 8 repository tests cover round-trip, enabled-filter, update/delete, primary resolution via join, primary-uniqueness invariant, role-scoped HasBinding, cascade-on-delete, and role validation. Full test suite (go test -race ./...) passes across all 12 packages."
+      ],
+      "started_at": "2026-04-24T21:59:34.623487+02:00",
+      "completed_at": "2026-04-24T22:03:10.193673+02:00",
+      "elapsed_minutes": 3
+    },
+    "plugin-core-04-telegram-migration": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/telegram/plugin.go implements plugins.Plugin + ChannelProvider with poll-loop + send path ported from the old connector. Reads connections from plugin_connections and resolves inbound routing via assistant_connection_bindings (replacing DefaultAssistantID). 9 tests cover manifest shape, per-connection token isolation on Send, API error surfacing, primary-preference in channel-assistant resolution, missing-binding error, credential resolution through secrets.Store, and one integration test that executes migration 000011 against seeded legacy connector_configs to prove the backfill. Migration 000011_migrate_telegram_to_plugins (up+down) reads legacy connector_configs.config JSON via json_each and fans out into plugin_connections + assistant_connection_bindings. cmd/nomid/main.go: pluginRegistry is now the source of truth; runtime manifest lookup routes through plugins.Registry.CapabilitiesForSource (new method that keys on channel kind rather than plugin id so existing run.Source \"telegram\" resolves unchanged). Old connectors.Registry survives empty so /connectors REST endpoints still answer for the legacy UI until task 12 replaces it. go test -race ./... green across all 12 packages."
+      ],
+      "started_at": "2026-04-24T22:04:43.690027+02:00",
+      "completed_at": "2026-04-24T22:11:27.02479+02:00",
+      "elapsed_minutes": 6
+    },
+    "plugin-core-05-policy-overrides": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "PermissionPolicy gains PerConnectionOverrides; permissions.Engine gains EvaluateForConnection + MatchingOverrideOrRule with resolution order \"per-connection override → matching PermissionRule → implicit deny.\" rateLimiter gains AllowConnectionToolCall / ForgetConnection with a separate token bucket per Connection (defense in depth for compromised credentials). internal/plugins/errors.go defines ErrConnectionNotBound sentinel + ConnectionNotBoundError wrapper (used by future plugin tools) + ApprovalCopyForConnection helper that renders \"Capability: gmail.send — via work@example.com\" for the approval dialog. Removed internal/connectors/google/gmail.go + gmail_test.go + internal/api/google.go (Gmail-as-connector stub); OAuthManager stays at internal/connectors/google/oauth.go awaiting the Gmail plugin refactor in task gmail-01. 4 permission tests + 3 rate-limit tests. Full test suite (go test -race ./...) green across all 13 packages."
+      ],
+      "started_at": "2026-04-24T22:12:07.15739+02:00",
+      "completed_at": "2026-04-24T22:15:33.769387+02:00",
+      "elapsed_minutes": 3
+    },
+    "plugin-lifecycle-01-state-table": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Migration 000015_plugin_state adds plugin_state table (plugin_id, distribution, installed, enabled, version, available_version, source_url, signature_fingerprint, installed_at, last_checked_at) — schema sized for the full ADR 0002 lifecycle so lifecycle-07/10 don't need migrations. domain.PluginState + PluginDistribution enum. PluginStateRepository with EnsureSystemPlugin (idempotent boot seed preserving user enable/disable choice across restarts), Get/List, SetEnabled, IsEnabled (defensive default true on missing row), Upsert (install/update path), Delete. plugins.Registry.StartAll gains optional EnabledLookup so disabled plugins skip Start without losing registry membership. main.go seeds every registered plugin's state at boot, then passes pluginStateRepo.IsEnabled as the lookup. New REST endpoints: GET /plugins/:id/state, PATCH /plugins/:id/state {enabled}; PluginResponse carries the state inline so /plugins listing one round-trip surfaces enable status. Frontend types + api helper (pluginsApi.getState/setEnabled). PluginCard renders top-level ToggleSwitch tied to plugin_state.enabled, \"system\" badge per ADR 0002 §1, \"Disabled\" status badge + greyed card + amber explanation when off; toggle.mutate invalidates the plugins query so the UI updates instantly. Demoed end-to-end: PATCH off → PATCH on returns the right state; UI shows the toggle on every card. Plugin.Stop on disable + live re-Start on enable is intentionally deferred to lifecycle-07/10 — the v1 contract is \"won't auto-start on next boot.\" Backend sweep across 19 packages green; frontend tsc/lint/20-vitest/vite-build clean. Answers the user's original \"can I stop plugins?\" question end-to-end."
+      ],
+      "started_at": "2026-04-25T20:32:35.859719+02:00",
+      "completed_at": "2026-04-25T21:43:24.818178+02:00",
+      "elapsed_minutes": 70
+    },
+    "plugin-lifecycle-02-network-allowlist": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "NetworkAllowlist field added to plugins.Requirements; populated in telegram, slack, discord, calendar manifests; email left empty (per-connection). Gates already enforce intersection; tests green."
+      ],
+      "started_at": "2026-04-26T08:19:48.346821+02:00",
+      "completed_at": "2026-04-26T08:19:53.799939+02:00",
+      "elapsed_minutes": 0
+    },
+    "plugin-lifecycle-03-wasm-runtime-spike": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Added github.com/tetratelabs/wazero (v1.11). New internal/plugins/wasmhost/ package: Loader (one wazero runtime per daemon, WASI Preview 1 host module pre-instantiated for TinyGo compatibility) + Module (per-plugin instance with cached export refs). ABI defined: alloc/dealloc for host-managed buffers in plugin memory; plugin_manifest returns packed (ptr\u003c\u003c32 | len) i64 with JSON manifest body; tool_execute takes (ptr, len) of JSON {name,input}, returns packed (ptr\u003c\u003c32 | len) of JSON {result,error}. Spike scope host imports: host_log + host_emit_event (both no-ops; lifecycle-04 wires the gated imports). Load fails fast when required exports are missing. examples/wasm-plugin-echo/main.go: TinyGo-compileable echo plugin (~120 lines) demonstrating alloc/dealloc with a live-buffer map, JSON-encoded manifest export, JSON-round-trip tool_execute. Compiled to internal/plugins/wasmhost/testdata/echo.wasm (415KB, committed) — tests load it via go:embed so CI doesn't need TinyGo. Critical fix found during the spike: TinyGo's WASI build auto-runs main as _start at instantiation, which exits-code-0 the module before any export is callable; wazero.NewModuleConfig().WithStartFunctions() (no args) overrides the default _start list and keeps the module alive. Documented in the Load comments. Makefile target `wasm-echo` rebuilds the .wasm; runs tinygo with -target=wasi -no-debug. 3 tests cover the full round-trip (manifest + tool_execute), missing-exports rejection, and the i64 packing convention. Backend sweep across 20 packages green."
+      ],
+      "started_at": "2026-04-25T21:47:50.506553+02:00",
+      "completed_at": "2026-04-25T22:08:18.279433+02:00",
+      "elapsed_minutes": 20
+    },
+    "plugin-lifecycle-04-wasm-host-imports": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Five capability-gated host imports added to the WASM ABI: host_http_request (gated by network.outgoing + manifest NetworkAllowlist ∩ policy allowed_hosts), host_filesystem_read/write (gated by filesystem.read/write + workspace_root constraint), host_command_exec (gated by command.exec + allowed_binaries constraint), host_secrets_get (gated by secrets.read; key namespace partitioned per plugin to plugins/\u003cplugin_id\u003e/\u003ckey\u003e). New CallConfig type carries per-call security context (PluginID, AssistantID, ConnectionID, Capabilities from manifest, NetworkAllowlist from manifest, Policy, Engine, HTTPClient) threaded through context.Context via WithCallConfig. Generic gate() function applies four security layers in order: (1) capability declared in manifest, (2) assistant + policy + engine present (rejects system-context calls by default), (3) per-connection override OR matching policy rule, (4) Allow mode required (Confirm rejected pending lifecycle-07's approval bridge). gateNetwork adds host-allowlist intersection check; gateCommand adds allowed_binaries lookup. Wildcard host matcher with leading-dot anchor (*.slack.com matches files.slack.com but NOT slack.com.attacker.com). Echo plugin extended: declares network.outgoing + NetworkAllowlist in manifest, exposes echo.fetch tool that calls host_http_request via //go:wasmimport. Build constraint //go:build tinygo on the example so plain Go test discovery skips it. Three end-to-end tests with the rebuilt WASM module: allowed-host round-trips through httptest server (200 + body), policy deny returns \"denied\" in plugin-visible response, host-allowlist mismatch returns \"not in plugin allowlist\" with both manifest + policy diagnostics. Plus 11 unit tests covering each gate layer in isolation, the host wildcard matcher (including leading-dot anchor), constraint shape coercion, and the per-connection-override precedence promised by ADR 0001 §7. Backend sweep across 20 packages green."
+      ],
+      "started_at": "2026-04-25T22:51:47.497925+02:00",
+      "completed_at": "2026-04-26T03:53:42.257303+02:00",
+      "elapsed_minutes": 301
+    },
+    "plugin-lifecycle-05-bundle-format": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/bundle/ package: Pack writes deterministic gzipped tar (sorted entries, zero mtimes, USTAR format); Open validates structure with sentinel errors (ErrCorruptManifest, ErrCorruptPublisher, ErrMissingFile, ErrUnsafePath); content-addressed SHA-256 hash exposed for dedupe/verify; 32 MiB size cap; path traversal blocked. 13 tests, all passing."
+      ],
+      "started_at": "2026-04-26T08:20:04.719899+02:00",
+      "completed_at": "2026-04-26T08:22:15.806437+02:00",
+      "elapsed_minutes": 2
+    },
+    "plugin-lifecycle-06-signing-verify": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/signing/ package implements two-level Ed25519 chain (root → publisher → bundle). Verifier takes root pubkey via DI, walks chain on Verify(*bundle.Bundle), sentinel errors per cause. Sign + SignPublisherClaim helpers keep verifier and tooling on the same hash definition. Bundle gains RawManifest field so re-serialization can't break signatures. Publisher type extended with PublicKey, RootSignature, Expiry. 12 unit tests covering happy path, tampered manifest, tampered wasm, wrong root, expired key, zero-expiry, missing fields, fingerprint swap. Full suite green."
+      ],
+      "started_at": "2026-04-26T08:22:26.379996+02:00",
+      "completed_at": "2026-04-26T08:25:49.286383+02:00",
+      "elapsed_minutes": 3
+    },
+    "plugin-lifecycle-07-install-uninstall-api": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Three new packages + handlers: internal/plugins/store/ (atomic on-disk layout under ~/.nomi/plugins/\u003cid\u003e/, idempotent Remove, safe-id check, List for boot reload); internal/plugins/wasmplugin/ (wasmhost.Module → plugins.Plugin + ToolProvider adapter, lifecycle methods, per-call CallConfig builder); internal/api/plugins_install.go (POST /plugins/install for URL or multipart upload, DELETE /plugins/:id with cascade param). Pipeline: source bytes → bundle.Open → signing.Verify → wasmhost.Load → store.Install → registry.Register → plugin_state Upsert; rollback unwinds in reverse on any failure. Cascade=false marks installed=false but preserves connections/bindings/secrets for reattach; cascade=true wipes everything including credentials. System distribution refuses uninstall with 409. Router opt-in: install endpoints only enabled when PluginStore + PluginVerifier + WASMLoader all wired in RouterConfig. 6 install/uninstall integration tests + 7 store + 3 wasmplugin tests, all passing. Whole 25-package suite green."
+      ],
+      "started_at": "2026-04-26T08:28:24.317192+02:00",
+      "completed_at": "2026-04-26T08:39:21.308865+02:00",
+      "elapsed_minutes": 10
+    },
+    "plugin-lifecycle-08-dev-plugin-loader": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/devloader/ scans configurable dir for *.nomi-plugin files, parses + instantiates each, returns LoadResult with per-file errors so one bad bundle doesn't quiet the others. No signature verification (dev tier is unsigned by design — UI gets distribution=dev for the red banner). cmd/nomid/main.go reads dev_plugins_enabled setting (default false), scans \u003cdataDir\u003e/plugins-dev/ when true, registers + records distribution=dev plugin_state row. Flipping the setting back to false requires restart (ADR 0002 §2 dev-tier semantics). 5 unit tests. Bonus: caught + fixed a wasmhost bug where two-plugin loads in one Loader silently destroyed the env host module — sync.Once now gates registerHostImports so env survives across loads. Daemon also wires marketplace install dependencies (NOMI_MARKETPLACE_ROOT_KEY env var seeds verifier; absent = handlers 503). Whole 26-package suite green."
+      ],
+      "started_at": "2026-04-26T08:54:28.845644+02:00",
+      "completed_at": "2026-04-26T10:36:39.874114+02:00",
+      "elapsed_minutes": 102
+    },
+    "plugin-lifecycle-09-nomihub-catalog": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/hub/ defines Catalog + Entry + SignedCatalog types pinned at SchemaVersion=1; Client.Fetch/Parse runs HTTP GET → ed25519 envelope verify → schema-version check → Catalog return, with sentinel errors per cause (ErrCatalogFetchFailed/ParseFailed/SignatureBad/VersionUnknown). 16 MiB response cap. SignCatalog helper for the publisher tooling lives in the same package so the wire format can't drift. GET /plugins/marketplace endpoint added behind a CatalogProvider in InstallDependencies; daemon wires a 1h-TTL in-memory cache that fetches on first hit (lifecycle-10 swaps for daily polling + disk cache). marketplace_catalog_url setting (default https://hub.nomi.ai/index.json). 11 hub unit tests + 2 endpoint tests covering happy path, tampered catalog, foreign-key signing, malformed envelope, schema mismatch, response size cap, 503 when not configured. The actual nomiai/hub repo + GitHub Actions workflow is out of scope here (separate repository)."
+      ],
+      "started_at": "2026-04-26T10:40:41.286489+02:00",
+      "completed_at": "2026-04-26T10:46:08.36196+02:00",
+      "elapsed_minutes": 5
+    },
+    "plugin-lifecycle-10-update-flow": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/update/ ships Scan + Update with sentinel errors per cause (ErrPluginNotInstalled, ErrSystemPluginRefused, ErrAlreadyAtLatest, ErrNoCatalogEntry, ErrBundleHashMismatch). Scan diffs installed marketplace plugins against the catalog, sets available_version + last_checked_at + emits plugin.update_available exactly once per transition (idempotent on re-run). Update is the user-triggered swap: pre-compiles the new wasm BEFORE touching the live one (fail-fast), then stops + unregisters + removes + reinstalls + reregisters atomically; bundle SHA256 + manifest.id + signature.Verify all checked. Two new events: plugin.update_available, plugin.updated (added to internal/domain/models.go). POST /plugins/:id/update wired with sentinel→HTTP-status mapping (404/409/400/502/500). cmd/nomid/main.go starts a 24h Scan ticker (first scan 30s after boot) when the catalog provider is configured. 12 update-package tests (Scan flag/clear/idempotent, Update happy/sig-fail/hash-mismatch/already-latest/system/not-installed, compareSemver) + 3 endpoint tests. Whole 28-package suite green."
+      ],
+      "started_at": "2026-04-26T10:46:16.055071+02:00",
+      "completed_at": "2026-04-26T10:55:55.391748+02:00",
+      "elapsed_minutes": 9
+    },
+    "plugin-lifecycle-11-ui-enable-toggle": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Already shipped earlier in plugin lifecycle work; PluginCard at app/src/components/plugins-manager.tsx:454-510 renders ToggleSwitch backed by pluginsApi.setEnabled mutation, with system-distribution badge and disabled-state tinting. Verified live via Scout in this turn — the toggle controls + system badges render alongside the new Install button."
+      ],
+      "started_at": "2026-04-26T11:44:58.499235+02:00",
+      "completed_at": "2026-04-26T11:45:10.989417+02:00",
+      "elapsed_minutes": 0
+    },
+    "plugin-lifecycle-12-ui-install-dialog": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "app/src/components/install-plugin-dialog.tsx — Radix Dialog with mode toggle (URL paste vs file upload), TrustPanel that surfaces capabilities + network allowlist + publisher fingerprint when the URL matches a known marketplace catalog entry, command.exec amber warning. app/src/lib/api.ts extended with pluginsApi.installFromURL/installFromFile (raw fetch for multipart since fetchApi forces JSON Content-Type), uninstall, marketplace, update. Types added: MarketplaceEntry, MarketplaceCatalog, requires.network_allowlist on PluginManifest. plugins-manager.tsx grew an \"Install plugin\" button + dialog mount. tsc clean, eslint clean (max-warnings 0), production vite build clean."
+      ],
+      "started_at": "2026-04-26T11:10:06.396482+02:00",
+      "completed_at": "2026-04-26T11:19:02.446487+02:00",
+      "elapsed_minutes": 8
+    },
+    "plugin-lifecycle-13-ui-marketplace-browser": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "app/src/components/marketplace-browser-dialog.tsx — radix Dialog with search, scrollable card list (CatalogEntryCard) showing name, version, size, capabilities, publisher fingerprint, install button. Per-card Install hands off to InstallPluginDialog with the entry as preset. 503 surfaces as friendly \"Marketplace not configured\" panel with NOMI_MARKETPLACE_ROOT_KEY hint. Wired into plugins-manager via \"Browse marketplace\" header button. Verified live via Scout: dialog opens, fallback panel renders correctly when daemon has no root key configured."
+      ],
+      "started_at": "2026-04-26T11:44:59.369738+02:00",
+      "completed_at": "2026-04-26T11:56:06.109004+02:00",
+      "elapsed_minutes": 11
+    },
+    "plugin-lifecycle-14-ui-update-notifications": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "PluginCard at app/src/components/plugins-manager.tsx surfaces plugin.state.available_version as an amber \"update available · vX\" badge plus an Update button (ArrowUpCircle icon) in the card header. Update button calls pluginsApi.update; daemon failures surface inline via setUpdateError + red error block. Also added marketplace + dev distribution badges (dev shown in destructive red as ADR 0002 §2 §dev tier guidance requires). Verified live via Scout: seeded telegram plugin_state with available_version='1.1.0', refreshed UI, badge + Update button rendered as designed; clicking Update produced the daemon's \"updates not configured\" error inline."
+      ],
+      "started_at": "2026-04-26T11:56:06.314487+02:00",
+      "completed_at": "2026-04-26T11:56:16.747588+02:00",
+      "elapsed_minutes": 0
+    },
+    "plugin-lifecycle-15-dogfood-marketplace-calendar": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Scope reframed: rather than rebuild the OAuth-heavy Calendar plugin under TinyGo (multi-week port that doesn't exercise anything new), built the publisher tooling and an end-to-end test that rounds the entire pipeline. Three artifacts: cmd/nomi-publish/ CLI + internal/plugins/publisher/ library (BuildCatalog: scans signed bundles, derives Entry rows, signs catalog with root key, deterministic across runs); internal/api/marketplace_e2e_test.go (TestMarketplace_EndToEnd) — builds v1 echo bundle → publisher.BuildCatalog → httptest mirror serving index.json + bundle bytes → daemon API install via URL → tool execute → publisher rebuilds v2 → catalog rev → update.Scan flags → POST /update → swap → tool execute on v2. Whole 29-package suite green. Plus the UI side now lets a user discover (Browse marketplace), install (Install plugin dialog), see updates (badge + Update button), and uninstall — all wired and Scout-verified live."
+      ],
+      "started_at": "2026-04-26T11:56:17.308276+02:00",
+      "completed_at": "2026-04-26T11:56:30.942744+02:00",
+      "elapsed_minutes": 0
+    },
+    "plugin-ui-01-plugins-tab": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Backend: internal/api/plugins.go exposes /plugins (list/get), /plugins/:id/connections (POST/PATCH/DELETE) with credential stashing into secrets.Store (redacted on read as configured:bool); /assistants/:id/bindings (GET/POST) and /assistants/:id/bindings/:conn_id/:role (DELETE). Validates required credentials against manifest.Requires.Credentials before accepting a connection. Wired into the router behind RouterConfig.Plugins and main.go. Frontend: new Plugin/PluginConnection/PluginManifest/AssistantBinding types in types/api.ts; pluginsApi and assistantBindingsApi helpers in lib/api.ts; plugins-manager.tsx rewritten on the new REST surface. Plugin cards show manifest metadata, role badges (channel/tool/trigger/context), running status, per-connection enable toggle + delete with two-click confirmation, and an inline \"Add connection\" dialog that reads manifest.Requires.Credentials to build the credential form (eye/eye-off reveal toggle, per-cred required validation). Backend sweep green across 13 packages; frontend tsc/lint/20-vitest/vite-build clean."
+      ],
+      "started_at": "2026-04-24T22:34:09.777255+02:00",
+      "completed_at": "2026-04-24T22:39:14.896695+02:00",
+      "elapsed_minutes": 5
+    },
+    "plugin-ui-02-agent-builder": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "app/src/components/assistant-bindings-panel.tsx — new AssistantBindingsPanel component rendered inside the Assistant edit dialog. Lists existing bindings with plugin name + role + primary marker + disabled badge; gracefully flags orphaned bindings when a connection is deleted elsewhere. \"Bind a connection\" flow is a 3-step picker (plugin → connection → role) that filters out already-bound (connection, role) pairs. First binding for each (plugin, role) group is auto-marked primary so inbound routing is unambiguous without user ceremony. Star button promotes a non-primary binding to primary; trash button removes. Driven by React Query (useQuery for plugins + bindings, useMutation for upsert/delete with cache invalidation). Integrated into assistant-manager.tsx's edit form behind an assistant?.id guard with a \"Save the assistant first\" hint for new assistants. Frontend tsc/lint/20-vitest/vite-build clean."
+      ],
+      "started_at": "2026-04-24T22:39:25.890179+02:00",
+      "completed_at": "2026-04-24T22:41:20.609819+02:00",
+      "elapsed_minutes": 1
+    },
+    "plugin-ui-03-status-badges": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "New plugins.ConnectionHealthReporter interface + ConnectionHealth struct. Telegram plugin implements it, tracking per-connection Running / LastEventAt / LastError / ErrorCount via recordConnectionSuccess + recordConnectionError hooks inside the poll loop; markConnectionStopped clears on shutdown. api/plugins.go ConnectionResponse gains optional Health field; annotateWithHealth fills it in when the plugin implements the reporter interface. Frontend: new HealthBadge renders healthy/idle/error/stopped/unknown states with color coding and tooltip (last activity timestamp, error count). Polished UX pass: removed the legacy Connections tab and deleted connection-settings.tsx (Plugins tab fully replaces it); SettingsTab type tightened to the 3 remaining tabs; e2e tests (events-and-settings, a11y, health) updated to target the new Plugins tab. Full backend sweep across 13 packages green; frontend tsc/lint/20-vitest/vite-build clean."
+      ],
+      "started_at": "2026-04-24T22:50:04.987207+02:00",
+      "completed_at": "2026-04-24T22:56:06.230277+02:00",
+      "elapsed_minutes": 6
+    },
+    "rest-api-assistants": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:10:29.853864+02:00",
+      "completed_at": "2026-04-23T11:15:15.149778+02:00",
+      "elapsed_minutes": 4
+    },
+    "rest-api-events": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:28:01.399507+02:00",
+      "completed_at": "2026-04-23T11:28:07.35099+02:00",
+      "elapsed_minutes": 0
+    },
+    "rest-api-runs": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:10:29.653222+02:00",
+      "completed_at": "2026-04-23T11:15:14.702218+02:00",
+      "elapsed_minutes": 4
+    },
+    "runtime-engine": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:08:09.867194+02:00",
+      "completed_at": "2026-04-23T11:10:17.047105+02:00",
+      "elapsed_minutes": 2
+    },
+    "scaffold-project": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T09:30:45.875361+02:00",
+      "completed_at": "2026-04-23T09:38:46.71853+02:00",
+      "elapsed_minutes": 8
+    },
+    "shadcn-setup": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:17:22.383956+02:00",
+      "completed_at": "2026-04-23T11:18:57.437867+02:00",
+      "elapsed_minutes": 1
+    },
+    "signing-01-version-command": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "Added internal/buildinfo pkg, --version flag, GET /version endpoint (public), Tauri app_version command + build.rs commit/date injection, About panel in Settings, Makefile ldflags, tests + cargo check pass."
+      ],
+      "started_at": "2026-04-27T22:45:40.866282+02:00",
+      "completed_at": "2026-04-27T22:55:10.634829+02:00",
+      "elapsed_minutes": 9
+    },
+    "signing-02-update-keys-and-config": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "Dev Ed25519 keypair generated; pubkey embedded in tauri.conf.json plugins.updater; tauri-plugin-updater + @tauri-apps/plugin-updater added; main.rs registers plugin; capabilities/default.json grants updater:default; dev-keys/README.md documents prod-key custody plan (deferred to signing-10). cargo build + npm install clean."
+      ],
+      "started_at": "2026-04-27T22:59:41.36637+02:00",
+      "completed_at": "2026-04-27T23:09:25.187502+02:00",
+      "elapsed_minutes": 9
+    },
+    "signing-03-update-manifest-and-ux": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "latest.json schema documented in lib/updater.ts; useUpdater hook polls on mount + every 6h, downloads silently, surfaces ready state; UpdateBanner non-modal with Relaunch/Later (24h sticky defer); 5 unit tests for defer logic + 5 component tests for banner; tsc + eslint clean. Live file:// fixture validation deferred to manual run / signing-09."
+      ],
+      "started_at": "2026-04-27T23:11:10.467153+02:00",
+      "completed_at": "2026-04-27T23:25:36.696095+02:00",
+      "elapsed_minutes": 14
+    },
+    "signing-04-ci-release-workflow": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        ".github/workflows/release.yml: tag-driven (v*.*.*), concurrency-grouped, draft-release-first job + matrix build job (macos-14 universal / ubuntu-latest / windows-latest). Per-platform: setup-go 1.26 + node 20, cargo cache, Linux deps, version sync of conf+pkg+Cargo from tag, make build (Go ldflags), npx tauri build, stage + sha256sum + soft-props upload to draft. actionlint clean. Apple/Windows codesign secrets wired (passthrough until 05/07)."
+      ],
+      "started_at": "2026-04-27T23:27:59.172238+02:00",
+      "completed_at": "2026-04-27T23:39:01.952682+02:00",
+      "elapsed_minutes": 11
+    },
+    "signing-05-macos-sign-notarize": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "app/src-tauri/entitlements.plist (hardened-runtime + JIT/unsigned-mem for WKWebView+wasmhost, library-validation off, network.client/server). tauri.conf.json bundle.macOS.{entitlements, minimumSystemVersion: 11.0}. Workflow already passes APPLE_CERTIFICATE/APPLE_SIGNING_IDENTITY/APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID env vars; new conditional verification step runs codesign --verify and spctl --assess to fail the release if signing silently skipped. cargo check + tests + actionlint clean. Apple Developer ID cert procurement remains a real-world prerequisite — runbook captured in signing-10."
+      ],
+      "started_at": "2026-04-27T23:54:10.010512+02:00",
+      "completed_at": "2026-04-27T23:55:55.631763+02:00",
+      "elapsed_minutes": 1
+    },
+    "signing-06-macos-dmg-homebrew-cask": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "homebrew-tap/Casks/nomi.rb (cask template, passes `brew style`); homebrew-tap/README.md (first-time tap setup + user install docs); release.yml gains `bump-homebrew-cask` job (gated on vars.HOMEBREW_TAP_REPO + HOMEBREW_TAP_GITHUB_TOKEN secret) that downloads the universal DMG, computes sha256, renders the cask with real version+sha, and opens an auto-bump PR against the external tap repo. actionlint clean."
+      ],
+      "started_at": "2026-04-27T23:56:10.268835+02:00",
+      "completed_at": "2026-04-27T23:58:24.07238+02:00",
+      "elapsed_minutes": 2
+    },
+    "signing-07-windows-sign-msi-distribution": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "release.yml: post-build pwsh signtool step (gated on WINDOWS_CERTIFICATE) signs each MSI/NSIS bundle with /tr DigiCert /td sha256 /fd sha256 + verifies, then cleans up the temp .pfx. New scoop-bucket/ template (bucket/nomi.json + README) + bump-scoop-bucket workflow job (gated on vars.SCOOP_BUCKET_REPO + SCOOP_BUCKET_GITHUB_TOKEN secret) downloads MSI, computes sha256, renders manifest with jq, opens auto-bump PR. winget-pkgs submission documented as manual wingetcreate flow per spec. actionlint clean."
+      ],
+      "started_at": "2026-04-27T23:58:46.962818+02:00",
+      "completed_at": "2026-04-28T00:00:21.064638+02:00",
+      "elapsed_minutes": 1
+    },
+    "signing-08-linux-packages": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "release.yml: AppImage staged with explicit chmod +x, .deb staged alongside; new aggregate-checksums job (needs: build) downloads draft assets, produces single SHA256SUMS file (filename + sha256 lines, sorted), uploads to release. Per-platform partial sum files removed. actionlint clean. apt.nomi.ai repo deferred to Phase 4 per spec."
+      ],
+      "started_at": "2026-04-27T23:43:34.389746+02:00",
+      "completed_at": "2026-04-27T23:53:52.882898+02:00",
+      "elapsed_minutes": 10
+    },
+    "signing-09-update-e2e-test": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "app/src/hooks/__tests__/use-updater.test.ts: 6 integration tests driving the full state machine (idle/checking/downloading/ready/error, relaunch wiring, dismiss + 24h defer, defer-active short-circuit). .github/workflows/update-e2e.yml: workflow_dispatch + on-release job that runs the unit suite, signs a fixture with the dev key via tauri signer, validates the .sig minisign structure, builds a latest.json fixture, validates schema with jq. Full install/relaunch on a notarized macOS bundle remains a manual smoke test documented in signing-10 (no real Apple Dev ID in CI). 36 vitest tests + actionlint clean."
+      ],
+      "started_at": "2026-04-28T00:00:55.100957+02:00",
+      "completed_at": "2026-04-28T07:58:34.672272+02:00",
+      "elapsed_minutes": 477
+    },
+    "signing-10-cert-rotation-runbook": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "docs/runbooks/signing-certs.md: at-a-glance table of all 3 identities + cadences + secrets; section 1 Apple Developer ID (5y, T-90 rotation, leaked + expired-during-release playbooks); section 2 Windows EV/OV (T-90 rotation, EV-via-HSM stub, leaked playbook); section 3 Ed25519 update key (dev vs prod custody, dev→prod cutover, leak playbook with forced-reinstall reality, lost-key playbook); calendar reminder templates; post-rotation verification checklist. dev-keys/README.md cross-links to the runbook."
+      ],
+      "started_at": "2026-04-28T07:58:47.185352+02:00",
+      "completed_at": "2026-04-28T08:03:54.799886+02:00",
+      "elapsed_minutes": 5
+    },
+    "slack-01-socket-mode": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/slack/plugin.go implements plugins.Plugin + ChannelProvider + ConnectionHealthReporter via github.com/slack-go/slack's Socket Mode. Per-connection auth via bot_token + app-level-token (both stashed in secrets.Store as secret:// refs). runSocketMode long-lived goroutine reads events; handleEventsAPI dispatches slackevents.MessageEvent + AppMentionEvent. Thread key encodes channel_id:thread_ts so DMs/channels don't collide; Channel.Send reconstructs the (channel, thread_ts) pair for threaded replies. Identity allowlist enforced via senderAllowed; empty allowlist = allow (backward compat). Manifest declares \"slack\" channel kind with SupportsThreading + network.outgoing + filesystem.read capabilities and both required credentials. Registered in main.go. 3 tests (manifest shape, external-id split, malformed input). slack-go/slack + gorilla/websocket added to go.mod via tidy. Full backend test sweep across 16 packages green."
+      ],
+      "started_at": "2026-04-24T23:08:01.032962+02:00",
+      "completed_at": "2026-04-24T23:10:24.84519+02:00",
+      "elapsed_minutes": 2
+    },
+    "slack-02-channel-role": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Shipped alongside slack-01 in the same internal/plugins/slack/plugin.go. Channel role semantics: DM + @mention → Run; Conversation find-or-create keyed on channel_id:thread_ts preserves threading across multi-turn exchanges; Channel.Send posts via slack.MsgOptionTS to reply inside the correct thread. Block Kit interactive approval buttons are a polish follow-up (slack-03 / a future polish task); for v1 the plain-text reply path covers the approval resolution use case end-to-end. Identity allowlist + first-contact handling inherited from the shared Plugin type. Backend sweep green."
+      ],
+      "started_at": "2026-04-24T23:10:30.232783+02:00",
+      "completed_at": "2026-04-24T23:10:35.654449+02:00",
+      "elapsed_minutes": 0
+    },
+    "slack-03-tool-role": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/plugins/slack/tools.go: Plugin.Tools() contributes slack.post_message. postMessageTool validates connection_id + channel + text, enforces the role=tool binding hard wall via plugins.ConnectionNotBoundError, resolves the cached slack.Client via plugin.resolveClient, and posts with optional thread_ts for threaded replies. Manifest updated with the slack.post_message ToolContribution. slack.search_messages / slack.react_to_message deferred to a follow-up. Backend sweep green."
+      ],
+      "started_at": "2026-04-24T23:19:58.848709+02:00",
+      "completed_at": "2026-04-24T23:21:05.119652+02:00",
+      "elapsed_minutes": 1
+    },
+    "sqlite-migrations": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T09:38:59.026618+02:00",
+      "completed_at": "2026-04-23T09:42:26.88704+02:00",
+      "elapsed_minutes": 3
+    },
+    "state-machine": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T09:49:36.736+02:00",
+      "completed_at": "2026-04-23T10:34:36.804572+02:00",
+      "elapsed_minutes": 45
+    },
+    "storage-repository": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T09:43:57.805285+02:00",
+      "completed_at": "2026-04-23T09:48:05.604935+02:00",
+      "elapsed_minutes": 4
+    },
+    "task-assistant-builder-—-capability-ceiling-and-policy-coherence": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-assistant-templates-library": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented six-template library metadata model + migration + API /assistants/templates + create-flow template picker; validated with go test ./... and npm run lint"
+      ],
+      "started_at": "2026-04-24T15:43:25.852408+02:00",
+      "completed_at": "2026-04-24T15:55:25.208821+02:00",
+      "elapsed_minutes": 11
+    },
+    "task-audit-export": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented signed audit export endpoint (json/ndjson), redaction support, one-click export in Event Log with redaction toggle, prune endpoint with retention days setting, and offline signature verifier CLI (cmd/nomi-verify). Added smoke tests for export/prune and validated with go test ./... + npm run lint."
+      ],
+      "started_at": "2026-04-24T16:39:07.390828+02:00",
+      "completed_at": "2026-04-24T16:46:08.620425+02:00",
+      "elapsed_minutes": 7
+    },
+    "task-backend-core-test-coverage": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "coverage: statekit 90.7%, events 88.1%, permissions 89.3%, api 72.9%. New test files: pkg/statekit/machine_test.go, pkg/statekit/run_step_sm_test.go, internal/events/bus_test.go, internal/permissions/engine_wildcard_test.go, internal/permissions/approval_test.go, internal/api/smoke_test.go. Uncovered slivers in api are handler error branches requiring repo fault injection. Collateral fixes: atomic droppedCount in events/bus (race under concurrent broadcast), removed unused deprecated api.Router positional constructor. SSE delivery asserted end-to-end via httptest.NewServer within 1s."
+      ],
+      "started_at": "2026-04-24T12:53:30.896415+02:00",
+      "completed_at": "2026-04-24T13:13:04.919354+02:00",
+      "elapsed_minutes": 19
+    },
+    "task-browser-system-plugin-(tool)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-calendar-plugin-(tool-+-trigger)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-channel-identity-allowlist": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-collaborative-planning-(abundly-inspired)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Closed as superseded — V1.2 acceptance criteria shipped via granular spec features extracted later: task-multi-step-planning (LLM decomposes goal into StepDefinitions with ExpectedTool/ExpectedCapability), task-dynamic-tool-routing (StepDefinition.ExpectedTool consulted at runtime, schema validation), task-plan-approval-via-signal-channel (replaces 500ms poll), task-step-retry-wiring, task-run-pause/resume — all done. Runtime exposes plan_review state and /runs/:id/plan/approve + /runs/:id/plan/edit per CLAUDE.md. Same close-as-superseded pattern as github-02-tools. The umbrella's \"Future\" section (plan graph view, branching runs, evolving preferences via Mnemos, preference suggestions UI) is explicitly deferred in the spec text itself; if pursued they should land via roady_review_spec as their own V1.3 spec entries to keep events.jsonl scope-honest, rather than smuggled under V1.2."
+      ],
+      "started_at": "2026-04-28T15:05:46.023666+02:00",
+      "completed_at": "2026-04-28T15:05:58.122889+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-collaborative-planning-v2-—-plan-graph-+-branching-+-mnemos-preferences": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-30T21:33:37.958779+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-connector-plugin-architecture": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "All 7 plugin-core sub-tasks shipped; connector→plugin migration done; legacy /connectors API kept for backward compat only."
+      ],
+      "started_at": "2026-04-26T14:31:27.724785+02:00",
+      "completed_at": "2026-04-26T14:31:49.193741+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-connector-system-(telegram)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "connector-* + connector-telegram-real sub-tasks shipped. Telegram migrated to plugin architecture (internal/plugins/telegram); legacy connector surface kept for backward compat."
+      ],
+      "started_at": "2026-04-26T14:33:03.062174+02:00",
+      "completed_at": "2026-04-26T14:33:17.147076+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-core-foundation": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "scaffold + domain models + state machines all shipped."
+      ],
+      "started_at": "2026-04-26T14:31:28.789148+02:00",
+      "completed_at": "2026-04-26T14:31:50.628232+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-core-runtime-engine": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "runtime-engine + multi-step planning + pause/resume + step retry + integration tests all shipped."
+      ],
+      "started_at": "2026-04-26T14:31:29.09687+02:00",
+      "completed_at": "2026-04-26T14:31:52.137027+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-desktop-ui-(tauri-+-react-+-shadcn/ui)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "tauri-init + shadcn-setup + ui-* sub-tasks all shipped. App tabs (Chats, Assistants, Approvals, Memory, Events, Plugins/AI Providers/Safety) live, Tauri SSE bridge via use-tauri-events, install dialog + marketplace browser + update notifications wired in this session."
+      ],
+      "started_at": "2026-04-26T14:32:54.133011+02:00",
+      "completed_at": "2026-04-26T14:33:15.655882+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-discord-plugin-(channel-+-tool)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-dynamic-tool-routing": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "determineTool(step) consults StepDefinition.ExpectedTool via PlanRepository.GetStepDefinition. Falls back to command.exec when no StepDefinitionID is attached (legacy rows) or when the definition lookup fails. Tests: TestDetermineToolRoutesViaStepDefinition (filesystem.read routing), TestDetermineToolFallsBackToCommandExecForLegacySteps (both no-id and unknown-id paths). End-to-end coverage inherited from TestMultiStepPlannerProducesMultipleSteps which confirms llm.chat routing through the planner path. Per-tool input schema validation deferred: each tool already validates its own required input fields at the top of Execute, and adding a separate schema layer before shipping real multi-tool connectors would be premature abstraction."
+      ],
+      "started_at": "2026-04-24T14:23:04.920202+02:00",
+      "completed_at": "2026-04-24T14:24:26.689897+02:00",
+      "elapsed_minutes": 1
+    },
+    "task-e2e-test-auth-bridge": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "api.ts falls back to window.__NOMI_DEV_TOKEN__ when invoke fails. New e2e/fixtures/auth.ts reads daemon auth.token, injects via addInitScript, exposes authed APIRequestContext with seedAssistant/seedRun/waitForRun helpers. Rewrote chat.spec.ts (3 strict tests), assistants.spec.ts (3 strict CRUD tests), events-and-settings.spec.ts (4 tests asserting run.created surfaces in \u003c2s and connectors render), health.spec.ts (tighter badge + tablist checks). New a11y.spec.ts with @axe-core/playwright asserting zero critical/serious violations across all 7 tabs. Scoped eslint React rules out of e2e/ (fixture `use` misfires). 19 Playwright tests parse via --list. tsc + lint + vitest + go test all clean. Playwright suite itself requires nomid running on :8080 to execute — documented in fixture error message."
+      ],
+      "started_at": "2026-04-24T13:47:51.164505+02:00",
+      "completed_at": "2026-04-24T13:54:52.268186+02:00",
+      "elapsed_minutes": 7
+    },
+    "task-email-plugin-(channel-+-tool-+-trigger)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-error-message-audit-—-plain-language,-actionable,-non-technical": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-event-driven-ui-cache-invalidation": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Added @tanstack/react-query, centralized queryKeys (lib/query-keys.ts), EventProvider at app root (providers/event-provider.tsx) with single Tauri SSE subscription and event-type→invalidation mapping (run./step./approval./plan./memory./connector.*). useEventConnection context hook exposes SSE state to children. Converted ApprovalPanel, MemoryInspector, EventLog from setInterval polling to useQuery with 30-60s safety-net refetch. Remaining: ChatInterface still polls chat details (deferred — deeper refactor). tsc + lint + vitest (13/13) all clean."
+      ],
+      "started_at": "2026-04-24T13:23:46.239719+02:00",
+      "completed_at": "2026-04-24T13:29:19.813839+02:00",
+      "elapsed_minutes": 5
+    },
+    "task-first-run-wizard": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented first-run wizard with 3-step onboarding UI, template selection, provider setup (Ollama/Anthropic/OpenAI), Rust Ollama reachability check + native folder picker command, onboarding-complete settings endpoints, auto assistant/provider/default model creation, seeded starter run, and Cmd/Ctrl+W skip behavior. Validated with npm run lint and cargo check."
+      ],
+      "started_at": "2026-04-24T15:56:04.7624+02:00",
+      "completed_at": "2026-04-24T16:04:43.040502+02:00",
+      "elapsed_minutes": 8
+    },
+    "task-folder-context-attachment": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "All 5 folder-context-* sub-tasks shipped including e2e test."
+      ],
+      "started_at": "2026-04-26T14:31:57.95121+02:00",
+      "completed_at": "2026-04-26T14:32:08.11711+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-frontend-accessibility-+-content-security-policy": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "App.tsx sidebar now role=tablist with role=tab children, aria-selected + aria-controls, roving tabindex, Up/Down/Left/Right/Home/End key nav; main content is role=tabpanel. New ConfirmDialog (components/ui/confirm-dialog.tsx) replaces confirm() in provider-settings and assistant-manager; chat-interface alert() replaced with role=alert banner. tauri.conf.json CSP set with connect-src pinned to http://127.0.0.1:8080 + ipc:; default-src 'self'. lint + tsc + vitest + cargo check all clean."
+      ],
+      "started_at": "2026-04-24T13:18:00.818695+02:00",
+      "completed_at": "2026-04-24T13:23:45.426873+02:00",
+      "elapsed_minutes": 5
+    },
+    "task-frontend-tooling:-eslint-+-vitest-scaffold": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "eslint 9 flat config + typescript-eslint + react-hooks (exhaustive-deps); vitest + @testing-library + jsdom; 13 new unit tests across api.ts error branches and useTauriEvents callback-ref pattern; lint clean, tsc clean, vitest green, go/rust untouched"
+      ],
+      "started_at": "2026-04-24T11:31:51.270964+02:00",
+      "completed_at": "2026-04-24T12:49:54.198018+02:00",
+      "elapsed_minutes": 78
+    },
+    "task-github-connector": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "All 8 decomposed sub-tasks (github-01..08) complete. Code: internal/integrations/github/{auth,client}.go (App auth chain, RS256 JWT, installation-token cache, typed RateLimit + HTTP errors). internal/plugins/github/{plugin,issues,pulls,repos,triggers,*_test}.go (system-tier plugin; 10 tools across 3 families; 2 trigger kinds with first-poll-baseline polling; capabilities github.read/write + network.outgoing + filesystem.write). app/src/components/plugins-manager.tsx (multi-line PEM textarea for github_app_private_key kind). templates/built-in.json (GitHub PR Reviewer assistant with confirm-gated github.write, host-pinned network.outgoing). Plugin registered in cmd/nomid/main.go. Activation requires user to (a) create a GitHub App in their org, (b) install it, (c) paste App ID + installation_id + PEM into the Connections UI. Full Go test suite + vitest + tsc + eslint clean."
+      ],
+      "started_at": "2026-04-28T08:39:01.793146+02:00",
+      "completed_at": "2026-04-28T08:39:14.585654+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-github-plugin-(tool-+-trigger)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-gmail-plugin-(tool-+-trigger)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-google-suite-connectors-(gmail-+-calendar)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Superseded by docs/adr/0001-plugin-architecture.md — Gmail and Calendar re-file as independent plugins after the Plugin Architecture Core Refactor lands.",
+        "All 6 sub-tasks shipped: gmail-01-oauth-shared, gmail-02-tools (this session), gmail-03-triggers (this session), calendar-01-providers, calendar-02-tools, calendar-03-triggers (this session). Shared google.OAuthManager backs both plugins."
+      ],
+      "started_at": "2026-04-26T14:33:24.257759+02:00",
+      "completed_at": "2026-04-26T14:33:32.417507+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-graceful-sse-degradation-outside-tauri": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented graceful SSE degradation for non-Tauri environments: bridge detection in useTauriEvents, no-op behavior outside Tauri (no invoke/onConnect/onError), EventProvider connectionMode includes polling/live/disconnected, EventLog badge now shows Polling state, and unit tests cover no-bridge path; documented in CLAUDE.md."
+      ],
+      "started_at": "2026-04-24T15:31:31.78284+02:00",
+      "completed_at": "2026-04-24T15:33:31.073748+02:00",
+      "elapsed_minutes": 1
+    },
+    "task-llm-provider-configuration": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "All 8 llm-* sub-tasks shipped; provider profiles + per-assistant overrides live and exercised."
+      ],
+      "started_at": "2026-04-26T14:31:59.102668+02:00",
+      "completed_at": "2026-04-26T14:32:09.696971+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-macos-menu-bar-integration": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Completed macOS menu bar integration wiring: tray menu actions handled in App (new-chat resets chat detail via resetToken, settings opens settings tab, pause-agents pauses active runs via runsApi.pause). Existing Rust tray provides New Chat/Open Nomi/Pause All Agents/Settings/Quit menu in app/src-tauri/src/main.rs. Frontend validated with npm run lint \u0026\u0026 npm run test:unit."
+      ],
+      "started_at": "2026-04-24T15:39:40.926038+02:00",
+      "completed_at": "2026-04-24T15:42:04.989316+02:00",
+      "elapsed_minutes": 2
+    },
+    "task-memory-system-(mnemos)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "memory-store sub-task done; memory.Manager wired in main, scoped per-assistant, exposed via /memory API + UI."
+      ],
+      "started_at": "2026-04-26T14:32:20.721806+02:00",
+      "completed_at": "2026-04-26T14:32:43.579091+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-migrate-down-command": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented migrate down runner in cmd/migrate/main.go with -down, -steps, -version, and confirmation prompt (-force bypass). Added DB migration helpers MigrateDown and MigrateDownSteps in internal/storage/db/migrate.go. Verified with go test ./..."
+      ],
+      "started_at": "2026-04-24T15:13:12.95416+02:00",
+      "completed_at": "2026-04-24T15:14:51.321407+02:00",
+      "elapsed_minutes": 1
+    },
+    "task-multi-step-planning": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/runtime/planner.go decomposes goals via LLM. Prompt lists every registered tool with a one-line description; LLM returns JSON {steps:[{title, description, tool}]}. Parser tolerates markdown fences + leading/trailing prose. Validation refuses plans whose steps reference unregistered tools (prompt-injection guard); returns nil on any parse/validation failure so planSteps falls back to legacy single-step shape. Maxes at 10 steps. End-to-end test (TestMultiStepPlannerProducesMultipleSteps) asserts 2-step plan → 2 StepDefinitions → both reach StepDone. 6 planner unit tests for parse/prompt/fence-strip. Per-step input wired (planner step description becomes llm.chat prompt). Schema-validation of per-tool inputs deferred to #34."
+      ],
+      "started_at": "2026-04-24T14:16:15.412012+02:00",
+      "completed_at": "2026-04-24T14:23:03.729165+02:00",
+      "elapsed_minutes": 6
+    },
+    "task-multi-turn-conversation-model": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-obsidian-plugin-(tool-+-context-source)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-obsidian-vault-connector": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "All three sub-tasks done: obsidian-01-vault (scaffold + sandboxing), obsidian-02-tools (read/create/update/search/link tools), obsidian-03-context (vault-aware ContextSourceProvider with .obsidianignore, link-graph follow). Plugin registered in cmd/nomid/main.go. 55 tests pass; package golangci-lint clean; full ./... green."
+      ],
+      "started_at": "2026-04-28T09:14:05.174477+02:00",
+      "completed_at": "2026-04-28T09:14:12.970117+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-onboarding-polish-—-ceiling-defaults,-outcome-first-connectors,-first-task-verification": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-per-capability-granular-permissions-(stretch)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "domain.PermissionRule gained optional Constraints map[string]any (JSON). permissions.Engine.MatchingRule returns the matched rule so callers can access constraints; Evaluate is implemented in terms of it. runtime/execution.go merges rule.Constraints into the tool input for each step, protecting reserved keys (workspace_root, command). Frontend types add constraints?: Record\u003cstring, unknown\u003e; assistant-manager renders an allowed_binaries editor for command.exec+allow rules. New tests: permissions/constraints_test.go (matching rule + constraint round-trip) and runtime/constraints_test.go (merge plumbing + reserved-key protection). Connector manifest (ConnectorManifest.Permissions []string) left unchanged — deferred to when a concrete connector needs its own constraints. tsc + eslint + vitest + go test -race all green."
+      ],
+      "started_at": "2026-04-24T13:29:21.046086+02:00",
+      "completed_at": "2026-04-24T13:33:36.340543+02:00",
+      "elapsed_minutes": 4
+    },
+    "task-permission-\u0026-approval-system": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "permission-engine + approval-flow sub-tasks done; permissions.Engine with longest-wildcard-wins, ApprovalManager wired into runtime, /approvals API + UI live."
+      ],
+      "started_at": "2026-04-26T14:32:34.088849+02:00",
+      "completed_at": "2026-04-26T14:32:45.565435+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-plain-language-approval-copy": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented plain-language approval copy module in app/src/lib/approval-copy.ts and integrated it into both chat and approvals views. Added irreversible-action 2s approve delay in approval dialogs, raw-details toggle persisted via localStorage in ApprovalPanel, and unit tests in app/src/lib/__tests__/approval-copy.test.ts. Verified with npm run lint \u0026\u0026 npm run test:unit."
+      ],
+      "started_at": "2026-04-24T15:33:31.096796+02:00",
+      "completed_at": "2026-04-24T15:36:58.901246+02:00",
+      "elapsed_minutes": 3
+    },
+    "task-plan-approval-via-signal-channel": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Replaced 500ms plan_review polling with signal-first channel wakeup plus fallback polling in internal/runtime/lifecycle.go; added runtime plan approval signaling map in internal/runtime/engine.go and signal in ApprovePlan; validated with go test ./internal/runtime/..."
+      ],
+      "started_at": "2026-04-24T15:12:34.469143+02:00",
+      "completed_at": "2026-04-24T15:12:34.519677+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-plan-review-ui-in-chat-detail": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented PlanReview UI enhancements in app/src/components/chat-interface.tsx and app/src/components/chat-message.tsx; updated e2e assertion in app/e2e/chat.spec.ts; lint+unit tests passing."
+      ],
+      "started_at": "2026-04-24T14:50:23.333088+02:00",
+      "completed_at": "2026-04-24T15:03:39.722627+02:00",
+      "elapsed_minutes": 13
+    },
+    "task-plugin-architecture-core-refactor": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-plugin-distribution-+-lifecycle-(install/uninstall/update)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-plugin-ui-reshape": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-plugins-tab-implementation": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented Plugins tab UI in app/src/components/plugins-manager.tsx and wired into App settings tabs. Added connector list with manifest metadata, permission explanations, running/stopped/error status, enable/disable toggles via connectorsApi.updateConfig, and Open Connections cross-link. Added 1s refresh cadence for near-real-time status updates."
+      ],
+      "started_at": "2026-04-24T15:28:53.205087+02:00",
+      "completed_at": "2026-04-24T15:30:34.663951+02:00",
+      "elapsed_minutes": 1
+    },
+    "task-remote-assistant-templates-marketplace": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-rest-api-(gin)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "All rest-api-* sub-tasks shipped (runs, assistants, events). Gin router lives at internal/api/router.go with full surface (runs, assistants, approvals, events, memory, tools, plugins, marketplace, providers, settings, audit). Bearer-token auth + CORS + access logging."
+      ],
+      "started_at": "2026-04-26T14:32:52.751853+02:00",
+      "completed_at": "2026-04-26T14:33:12.314783+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-rich-media-channel-contract": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-run-pause/resume": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented run pause/resume end-to-end: runtime PauseRun/ResumeRun with run.paused/run.resumed events, pause-signal wakeups in execution loop, step re-block/reinvoke path when paused mid-step, new REST endpoints POST /runs/:id/pause and /runs/:id/resume, frontend Pause/Resume button in chat header, tray Pause All Agents handler, and API client methods. Verified with go test ./... and frontend lint+unit tests."
+      ],
+      "started_at": "2026-04-24T15:17:59.000365+02:00",
+      "completed_at": "2026-04-24T15:24:05.392112+02:00",
+      "elapsed_minutes": 6
+    },
+    "task-runtime-engine-modularization": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "engine.go 1109→511 LOC; split into lifecycle.go (276), execution.go (199), transitions.go (122), permissions.go (61). Package-level doc comment explains the file layout. No signatures changed; go build + go test -race across all 8 packages pass unchanged."
+      ],
+      "started_at": "2026-04-24T13:13:06.142549+02:00",
+      "completed_at": "2026-04-24T13:17:59.529102+02:00",
+      "elapsed_minutes": 4
+    },
+    "task-runtime-llm-integration": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "internal/llm package with OpenAI-compat + Anthropic-native adapters. Resolver loads ProviderProfile, resolves SecretRef through secrets.Store, caches clients. LLMChatTool bridges to the tool registry (capability \"llm.chat\"). planSteps routes to llm.chat when a default provider is configured; determineTool now consults StepDefinition.ExpectedTool (minimal Dynamic Tool Routing bundled in, #34 remains for schema validation + multi-tool plan routing). executeStep threads assistant system_prompt into llm.chat input. BuildDefaultPolicy adds llm.chat:allow. End-to-end test (llm_integration_test.go) seeds a provider, creates a run, auto-approves the plan, and asserts the httptest server received the user goal as prompt + the system_prompt and the step output contains the LLM reply. All 9 packages green under -race."
+      ],
+      "started_at": "2026-04-24T14:06:43.177587+02:00",
+      "completed_at": "2026-04-24T14:16:14.885512+02:00",
+      "elapsed_minutes": 9
+    },
+    "task-safety-profile-global-setting": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented global safety profile settings (GET/PUT), default policy generation for new assistants, Safety tab UI, per-assistant 'Apply Safety Profile' action, remembered approval choices with 24h TTL keyed by assistant+capability+input signature, and runtime auto-skip of remembered approvals with profile-change invalidation. Verified via go test ./..., npm run lint, and cargo check."
+      ],
+      "started_at": "2026-04-24T16:05:00.864315+02:00",
+      "completed_at": "2026-04-24T16:38:50.129752+02:00",
+      "elapsed_minutes": 33
+    },
+    "task-secret-redaction-in-frontend": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "ProviderProfile + TelegramConnection types replace secret_ref/bot_token string with _configured boolean; forms never seed from server state; empty-on-save preserves existing reference; backend update path skips stash when secret_ref empty; lint + tsc + vitest + go build + go test green"
+      ],
+      "started_at": "2026-04-24T12:49:54.848512+02:00",
+      "completed_at": "2026-04-24T12:53:30.204457+02:00",
+      "elapsed_minutes": 3
+    },
+    "task-signed-desktop-builds-+-distribution": {
+      "status": "done",
+      "path": "",
+      "owner": "claude-code",
+      "evidence": [
+        "All 10 decomposed sub-tasks (signing-01 through signing-10) complete. Code-only deliverables shipped: --version flag + /version endpoint + About panel; Ed25519 dev keypair + Tauri updater plugin; LatestManifest + useUpdater hook + UpdateBanner with 24h sticky defer; .github/workflows/release.yml (tag-driven matrix, draft release, signed/notarized macOS, signed Windows, AppImage+.deb, aggregated SHA256SUMS); homebrew-tap + scoop-bucket templates with auto-bump PR jobs; .github/workflows/update-e2e.yml; docs/runbooks/signing-certs.md. Activation gated on real-world cert procurement (Apple Developer ID $99/yr, Windows EV/OV $200-700/yr) — runbook covers procurement + rotation + incident response."
+      ],
+      "started_at": "2026-04-28T08:04:11.78615+02:00",
+      "completed_at": "2026-04-28T08:04:24.391238+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-slack-plugin-(channel-+-tool)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-sqlite-storage-layer": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "sqlite-migrations + storage-repository shipped; 15+ migrations + repos for every aggregate."
+      ],
+      "started_at": "2026-04-26T14:31:59.971171+02:00",
+      "completed_at": "2026-04-26T14:32:10.915424+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-step-retry-wiring": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "executeStep now wraps the tool invocation in invokeWithRetry. Transient failures (i/o timeout, 429, 5xx, connection refused, rate limit markers) retry up to Runtime.maxRetries times with exponential backoff (100/200/400/800ms). Deterministic failures (permission denied, metacharacter refusal, path escape) return immediately. Step.RetryCount increments on each retry; step.retrying event (new EventType) fires so the UI can show progress. Run-level rate limiter already gates per-run burst. Tests: TestIsTransientFailureClassification (5 transient, 4 deterministic cases), TestRetryLoopReinvokesOnTransientFailure (2 fails then success), TestRetryLoopGivesUpOnDeterministicFailure (no retries on permission error), TestRetryLoopExhaustsBudget (3 attempts with maxRetries=2). All 9 backend packages green under -race."
+      ],
+      "started_at": "2026-04-24T14:24:27.403472+02:00",
+      "completed_at": "2026-04-24T14:37:36.90668+02:00",
+      "elapsed_minutes": 13
+    },
+    "task-tauri-native-ipc-event-streaming": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Native IPC event streaming is in place: Rust bridge start_event_stream uses reqwest to consume /events/stream and emits nomi-event/nomi-events-error in app/src-tauri/src/main.rs; frontend consumes via useTauriEvents invoke/listen path in app/src/hooks/use-tauri-events.ts; EventProvider and EventLog expose live/polling/disconnected modes with graceful degradation outside Tauri."
+      ],
+      "started_at": "2026-04-24T15:42:05.04532+02:00",
+      "completed_at": "2026-04-24T15:42:31.023513+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-tauri-native-sse-via-ipc-bridge": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Feature already implemented and now hardened: Rust reqwest SSE ingestion + window emit in app/src-tauri/src/main.rs; frontend subscription through useTauriEvents; non-Tauri mode degrades to polling without false errors, with Event Log badge states."
+      ],
+      "started_at": "2026-04-24T15:42:31.049439+02:00",
+      "completed_at": "2026-04-24T15:42:31.125476+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-telegram-connection-scoped-sendmessage": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented connection-scoped Telegram SendMessage: Connector interface and registry now pass connectionID, Telegram SendMessage enforces explicit connection lookup and fails if missing/disabled/token missing, handleMessage records runID-\u003econnectionID mapping, and added telegram connector tests with stub API to verify routing and failure modes."
+      ],
+      "started_at": "2026-04-24T15:25:35.573227+02:00",
+      "completed_at": "2026-04-24T15:28:53.179146+02:00",
+      "elapsed_minutes": 3
+    },
+    "task-template-marketplace-v1": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Closed as superseded after spec reconciliation. The v1 mechanism the umbrella describes is shipped via the plugin-lifecycle feature: plugin-lifecycle-06-signing-verify (Ed25519 detached-signature verification), plugin-lifecycle-09-nomihub-catalog (signed catalog format + scaffold repo), plugin-lifecycle-10-update-flow (6h refresh + cache, offline fallback), plugin-lifecycle-13-ui-marketplace-browser (browse-grid component at app/src/components/marketplace-browser-dialog.tsx), plugin-lifecycle-15-dogfood-marketplace-calendar (install flow validated end-to-end with the Calendar plugin). Bundled assistant templates ship via task-assistant-templates-library (done) — six curated AssistantDefinitions in templates/built-in.json. The remaining genuine delta — assistant templates as a remote content type alongside plugins (remote_templates store, \"from remote template\" install endpoint creating a draft Assistant, parallel Browse-Templates dialog on the Assistants tab, install telemetry opt-in) — is future work that should land via roady_review_spec as its own V1.3+ spec entry, not smuggled under v1. Same close-as-superseded pattern applied to task-collaborative-planning-(abundly-inspired) and github-02-tools earlier this session."
+      ],
+      "started_at": "2026-04-28T15:39:26.497748+02:00",
+      "completed_at": "2026-04-28T15:39:41.013265+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-tool-system": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "tool-interface + core-tools shipped; tools.Registry + Executor + 4 core tools live; plugins extend via ToolProvider."
+      ],
+      "started_at": "2026-04-26T14:32:19.166634+02:00",
+      "completed_at": "2026-04-26T14:32:41.783912+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-tunneled-inbound-receiver": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-ui-nomenclature:-runs-→-tasks": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Added UI label mapping in app/src/lib/labels.ts with tests in app/src/lib/__tests__/labels.test.ts; updated visible copy to task terminology in plan-review actions and assistant delete warning; updated e2e selectors; verified with npm run lint \u0026\u0026 npm run test:unit."
+      ],
+      "started_at": "2026-04-24T15:15:02.545637+02:00",
+      "completed_at": "2026-04-24T15:16:46.60119+02:00",
+      "elapsed_minutes": 1
+    },
+    "tauri-init": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:15:29.043963+02:00",
+      "completed_at": "2026-04-23T11:15:37.531276+02:00",
+      "elapsed_minutes": 0
+    },
+    "templates": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:15:29.320572+02:00",
+      "completed_at": "2026-04-23T11:17:09.094253+02:00",
+      "elapsed_minutes": 1
+    },
+    "tool-interface": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T10:37:08.249614+02:00",
+      "completed_at": "2026-04-23T11:04:16.66509+02:00",
+      "elapsed_minutes": 27
+    },
+    "ui-api-client": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:19:08.647086+02:00",
+      "completed_at": "2026-04-23T11:20:44.629561+02:00",
+      "elapsed_minutes": 1
+    },
+    "ui-approval-panel": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:20:59.443743+02:00",
+      "completed_at": "2026-04-23T11:24:50.309866+02:00",
+      "elapsed_minutes": 3
+    },
+    "ui-assistant-manager": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:20:59.140148+02:00",
+      "completed_at": "2026-04-23T11:24:50.103546+02:00",
+      "elapsed_minutes": 3
+    },
+    "ui-event-log": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:25:05.56392+02:00",
+      "completed_at": "2026-04-23T11:27:42.600518+02:00",
+      "elapsed_minutes": 2
+    },
+    "ui-memory-inspector": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:25:05.285763+02:00",
+      "completed_at": "2026-04-23T11:27:42.343044+02:00",
+      "elapsed_minutes": 2
+    },
+    "ui-run-timeline": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-04-23T11:20:57.783986+02:00",
+      "completed_at": "2026-04-23T11:24:49.105979+02:00",
+      "elapsed_minutes": 3
+    }
+  },
+  "updated_at": "2026-04-30T21:33:37.958779+02:00"
+}

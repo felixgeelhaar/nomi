@@ -1,0 +1,56 @@
+# Compiled binaries (extension-less, so explicit names are required)
+/nomid
+/migrate
+bin/
+dist/
+*.exe
+
+# Go
+vendor/
+*.test
+*.out
+coverage.out
+
+# SQLite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Tauri / Node
+node_modules/
+app/dist/
+app/node_modules/
+app/src-tauri/target/
+# Tauri sidecar staging (per-target nomid binaries built by `make sidecar`)
+app/src-tauri/bin/
+test-results/
+# Cargo.lock is committed for the app crate so builds are reproducible.
+# (Only intentionally unversioned in library crates.)
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary
+tmp/
+temp/
+coverage.out
+test/journeys/.results/
+state.json.backup
+usage.json
+plan.json.backup

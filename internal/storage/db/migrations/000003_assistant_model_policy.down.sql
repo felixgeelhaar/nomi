@@ -1,0 +1,3 @@
+-- SQLite doesn't support dropping columns directly
+-- This would require a table recreation in production
+-- For dev, we can just leave the column

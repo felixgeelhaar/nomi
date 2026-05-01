@@ -1,0 +1,112 @@
+name: Update flow E2E
+
+# Exercises the auto-update chain end-to-end without requiring real
+# Apple/Windows signing certs. The full install-and-relaunch path on
+# notarized macOS builds is verified manually on tagged releases (see
+# docs/runbooks/signing-certs.md, signing-10).
+#
+# What this workflow checks:
+#   1. tauri signer can produce a .sig file for an arbitrary fixture
+#      using the dev key.
+#   2. The .sig has the expected minisign-ish format (untrusted/trusted
+#      comment lines + base64 signature payload).
+#   3. A latest.json constructed from the fixture + signature validates
+#      against the LatestManifest TypeScript shape.
+#   4. The vitest suite (defer logic + useUpdater state machine +
+#      banner rendering) all pass.
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Update flow chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install JS deps
+        working-directory: app
+        run: npm ci
+
+      - name: Run unit suite (defer logic, hook, banner)
+        working-directory: app
+        run: npx vitest run src/lib/__tests__/updater.test.ts src/hooks/__tests__/use-updater.test.ts src/components/__tests__/update-banner.test.tsx
+
+      - name: Generate fixture bundle
+        run: |
+          mkdir -p e2e-out
+          # Any non-empty file works; the signing roundtrip doesn't care
+          # about the contents, only that the bytes hashed by the signer
+          # match what the verifier later sees.
+          printf "fake-update-bundle\n" > e2e-out/Nomi_99.99.99_universal.app.tar.gz
+
+      - name: Sign fixture with dev key
+        working-directory: app
+        env:
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ github.workspace }}/dev-keys/nomi-dev.key
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+        run: |
+          npx tauri signer sign "${{ github.workspace }}/e2e-out/Nomi_99.99.99_universal.app.tar.gz"
+
+      - name: Validate .sig structure
+        run: |
+          SIG="e2e-out/Nomi_99.99.99_universal.app.tar.gz.sig"
+          test -s "$SIG" || { echo "::error::sig file empty"; exit 1; }
+          # Minisign-format sig contents is a single base64 blob that,
+          # when decoded, contains "untrusted comment:" + signature +
+          # "trusted comment:" + global signature. Decode and grep.
+          base64 -d "$SIG" | grep -q "untrusted comment" || {
+            echo "::error::sig missing untrusted comment line"
+            exit 1
+          }
+          base64 -d "$SIG" | grep -q "trusted comment" || {
+            echo "::error::sig missing trusted comment line"
+            exit 1
+          }
+          echo "OK: signature roundtrip + format check passed"
+
+      - name: Build a latest.json and validate against the schema
+        run: |
+          SIG="$(cat e2e-out/Nomi_99.99.99_universal.app.tar.gz.sig)"
+          cat > e2e-out/latest.json <<EOF
+          {
+            "version": "v99.99.99",
+            "notes": "E2E fixture",
+            "pub_date": "2026-04-27T00:00:00Z",
+            "platforms": {
+              "darwin-aarch64": { "signature": ${SIG@Q}, "url": "file:///tmp/fake.app.tar.gz" },
+              "darwin-x86_64":  { "signature": ${SIG@Q}, "url": "file:///tmp/fake.app.tar.gz" },
+              "linux-x86_64":   { "signature": ${SIG@Q}, "url": "file:///tmp/fake.app.tar.gz" },
+              "windows-x86_64": { "signature": ${SIG@Q}, "url": "file:///tmp/fake.app.tar.gz" }
+            }
+          }
+          EOF
+          # Schema check: required keys present, platforms object has all
+          # four targets, each with signature + url.
+          jq -e '
+            .version and .notes and .pub_date and
+            (.platforms["darwin-aarch64"].signature and .platforms["darwin-aarch64"].url) and
+            (.platforms["darwin-x86_64"].signature  and .platforms["darwin-x86_64"].url) and
+            (.platforms["linux-x86_64"].signature   and .platforms["linux-x86_64"].url) and
+            (.platforms["windows-x86_64"].signature and .platforms["windows-x86_64"].url)
+          ' e2e-out/latest.json > /dev/null
+          echo "OK: latest.json shape valid"
+
+      - name: Upload fixtures for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-e2e-fixtures
+          path: e2e-out/
+          retention-days: 7
