@@ -16,6 +16,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/felixgeelhaar/nomi/internal/buildinfo"
 )
 
 const usage = `nomi — CLI client for the Nomi runtime daemon (nomid).
@@ -89,7 +91,8 @@ func main() {
 	case "import":
 		os.Exit(importCmd(common, args))
 	case "version", "--version", "-v":
-		fmt.Println("nomi cli v0.1.0")
+		info := buildinfo.Current()
+		fmt.Printf("nomi cli v%s (%s, %s)\n", info.Version, info.Commit, info.BuildDate)
 		os.Exit(0)
 	case "help", "--help", "-h":
 		fmt.Print(usage)
