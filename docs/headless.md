@@ -296,7 +296,61 @@ curl -s -X PUT -H "Authorization: Bearer $TOK" \
 Exhaustive endpoint reference: [`docs/api.md`](api.md) (per-route
 schema, request/response examples, error codes).
 
-### C. Direct SQLite
+### C. `nomi export` / `nomi import` (config-as-code)
+
+When you've configured a daemon you like, snapshot it to a YAML file
+and treat that file as the source of truth. The same snapshot
+restores cleanly on a fresh install:
+
+```bash
+# On the configured machine — commit this to git, ship to prod.
+nomi export -o nomi.yaml
+
+# On the target machine — same Nomi version or newer.
+nomi import nomi.yaml
+# {"result":{"ProvidersCreated":1,"AssistantsCreated":1,
+#            "PreferencesCreated":2,"PluginStatesApplied":10,
+#            "SettingsApplied":true}}
+```
+
+**What ships in the snapshot**
+
+| Section | Identity | Notes |
+|---|---|---|
+| `providers` | name | secrets exported as references only — plaintext stays in the secrets store on each host |
+| `default_llm` | provider name + model id | resolves to local provider id at import; portable across hosts |
+| `assistants` | name | full persona + capabilities + permission policy + folder contexts + model overrides |
+| `settings` | key | safety profile + onboarding flag |
+| `preferences` | content | deduped on import |
+| `plugin_states` | plugin id | enabled flag |
+
+**What's NOT in the snapshot**
+
+- API keys / bot tokens / OAuth refresh tokens — set them on the
+  destination host out-of-band (UI, `secrets.Put`, or env).
+- Plugin connections (Telegram bot setup, Gmail OAuth state) — these
+  carry multi-step state; recreate them with the destination
+  daemon's UI.
+- Run history, events, audit log — that's [`/audit/export`](api.md),
+  not config.
+
+**GitOps pattern**
+
+```bash
+# repo: nomi-config
+$ ls
+README.md   prod.yaml   staging.yaml   dev.yaml
+
+# CI step:
+$ nomi --url=https://nomi-prod.internal import prod.yaml
+$ nomi --url=https://nomi-staging.internal import staging.yaml
+```
+
+The schema is versioned (`schema_version: 1` at the top of every
+file) so a future major shape change refuses to load on an older
+daemon rather than silently corrupting state.
+
+### D. Direct SQLite
 
 `/data/nomi.db` is a normal SQLite file. For migrations or bulk
 imports you can `sqlite3 /data/nomi.db "INSERT INTO …"` — but only

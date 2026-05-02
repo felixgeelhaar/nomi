@@ -826,8 +826,72 @@ journey_j22() {
     log "J22 ok"
 }
 
+# J23 — config export / import. Snapshot the daemon's user-configured
+# state, mutate something on the live instance, re-import the snapshot,
+# verify the mutation was reverted. Round-trip is the whole product
+# promise; a regression here breaks reproducibility.
+journey_j23() {
+    log "J23 config export / import round-trip"
+    # 0. Pin safety profile so the export carries an explicit value
+    #    (Export() omits defaults that were never written).
+    api_ok PUT "/settings/safety-profile" '{"profile":"balanced"}' >/dev/null
+    # 1. Export current state.
+    local export_out
+    export_out="$(api_ok GET "/config/export")" || return 1
+    [ -n "$export_out" ] || { fail "empty export"; return 1; }
+    printf "%s" "$export_out" | grep -q "schema_version: 1" \
+        || { fail "export missing schema_version"; return 1; }
+    printf "%s" "$export_out" | grep -q "$ASSISTANT_ID" 2>/dev/null \
+        || printf "%s" "$export_out" | grep -q "name: Research Assistant" \
+        || { fail "export missing seeded assistant"; return 1; }
+
+    # 2. Mutate: flip safety profile to fast.
+    api_ok PUT "/settings/safety-profile" '{"profile":"fast"}' >/dev/null
+    [ "$(api_ok GET "/settings/safety-profile" | jq -r .profile)" = "fast" ] \
+        || { fail "mutation didn't take"; return 1; }
+
+    # 3. Reimport the original snapshot.
+    local import_resp
+    import_resp="$(curl -sS -m 30 -X POST \
+        -H "Authorization: Bearer $NOMI_TOKEN" \
+        -H "Content-Type: application/x-yaml" \
+        --data-binary "$export_out" \
+        -w "\n__HTTP__%{http_code}" \
+        "$NOMID_URL/config/import")"
+    local code body
+    code="$(printf "%s" "$import_resp" | awk -F'__HTTP__' '/__HTTP__/{print $2}' | tail -1)"
+    body="$(printf "%s" "$import_resp" | sed '/__HTTP__/d')"
+    [ "$code" = "200" ] || { fail "import HTTP $code: $body"; return 1; }
+    [ "$(printf "%s" "$body" | jq -r '.result.SettingsApplied')" = "true" ] \
+        || { fail "import didn't apply settings: $body"; return 1; }
+
+    # 4. Mutation reverted (export → import is the contract).
+    [ "$(api_ok GET "/settings/safety-profile" | jq -r .profile)" = "balanced" ] \
+        || { fail "import didn't revert mutation"; return 1; }
+
+    # 5. Idempotency: a second import on the same data shouldn't
+    #    duplicate provider/assistant rows.
+    local provs_before assistants_before
+    provs_before="$(api_ok GET "/provider-profiles" | jq '.profiles | length')"
+    assistants_before="$(api_ok GET "/assistants" | jq '.assistants | length')"
+    curl -sS -m 30 -X POST \
+        -H "Authorization: Bearer $NOMI_TOKEN" \
+        -H "Content-Type: application/x-yaml" \
+        --data-binary "$export_out" \
+        "$NOMID_URL/config/import" >/dev/null
+    local provs_after assistants_after
+    provs_after="$(api_ok GET "/provider-profiles" | jq '.profiles | length')"
+    assistants_after="$(api_ok GET "/assistants" | jq '.assistants | length')"
+    [ "$provs_before" = "$provs_after" ] \
+        || { fail "providers duplicated: $provs_before -> $provs_after"; return 1; }
+    [ "$assistants_before" = "$assistants_after" ] \
+        || { fail "assistants duplicated: $assistants_before -> $assistants_after"; return 1; }
+
+    log "J23 ok (round-trip + idempotent)"
+}
+
 # ---------- main -----------------------------------------------------------
-ALL_JOURNEYS=(j1 j2 j3 j4 j5 j6 j7 j8 j9 j10 j11 j12 j13 j14 j15 j16 j17 j18 j19 j20 j21 j22)
+ALL_JOURNEYS=(j1 j2 j3 j4 j5 j6 j7 j8 j9 j10 j11 j12 j13 j14 j15 j16 j17 j18 j19 j20 j21 j22 j23)
 
 if [ $# -gt 0 ]; then
     SELECTED=("$@")
