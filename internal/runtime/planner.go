@@ -35,6 +35,7 @@ var toolDescription = map[string]string{
 	"llm.chat":           "Ask the LLM to think, reason, summarize, or generate text. Use for anything that doesn't require reading or writing files.",
 	"filesystem.read":    "Read the contents of a file from the assistant's workspace folder.",
 	"filesystem.write":   "Write content to a file in the assistant's workspace folder. Requires user approval.",
+	"filesystem.list":    "List the contents of a folder inside the assistant's workspace. Returns names + sizes + modified times. Use this before reading specific files.",
 	"filesystem.context": "List the folder structure of the assistant's workspace. Useful for orienting before reading specific files.",
 	"command.exec":       "Run a single shell command. Only allowed binaries are permitted; the command is refused if it contains shell metacharacters. Requires user approval.",
 }
