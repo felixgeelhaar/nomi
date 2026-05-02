@@ -304,12 +304,15 @@ button.copy code { background: transparent; border: 0; padding: 0; }
   border-bottom: 1px solid var(--border);
   padding: 0 0 80px;
 }
-.screenshot img {
+.screenshot img,
+.screenshot video.hero-video {
   max-width: 100%;
   height: auto;
   border-radius: 12px;
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
+  display: block;
+  margin: 0 auto;
 }
 .caption {
   color: var(--fg-muted);
