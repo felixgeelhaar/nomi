@@ -502,7 +502,7 @@ jobs:
              | .architecture["64bit"].hash = $sha' \
             scoop-bucket/bucket/nomi-desktop.json > out/bucket/nomi-desktop.json
           # CLI zip manifest -> nomi.json
-          CLI_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/nomi-v${VERSION}-windows-amd64.zip"
+          CLI_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/nomi-${VERSION}-windows-amd64.zip"
           jq \
             --arg version "${VERSION}" \
             --arg url "${CLI_URL}" \
