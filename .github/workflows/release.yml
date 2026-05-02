@@ -145,9 +145,15 @@ jobs:
           case "${{ matrix.platform }}" in
             macos-14)
               # Universal target needs both arches present so Tauri can
-              # produce a fat binary.
+              # produce a fat binary. lipo merges them into the
+              # `universal-apple-darwin` sidecar Tauri's bundler copies
+              # into Nomi.app when building --target universal-apple-darwin.
               build_for darwin arm64 aarch64-apple-darwin
               build_for darwin amd64 x86_64-apple-darwin
+              lipo -create \
+                -output app/src-tauri/bin/nomid-universal-apple-darwin \
+                app/src-tauri/bin/nomid-aarch64-apple-darwin \
+                app/src-tauri/bin/nomid-x86_64-apple-darwin
               ;;
             ubuntu-latest)
               build_for linux amd64 x86_64-unknown-linux-gnu
@@ -180,7 +186,9 @@ jobs:
             cp LICENSE "${stage}/" 2>/dev/null || true
             cp README.md "${stage}/" 2>/dev/null || true
             if [ "$goos" = "windows" ]; then
-              (cd dist && zip -qr "nomi-${VERSION}-${friendly}.zip" "nomi-${friendly}")
+              # GitHub-hosted windows-latest runners ship 7-Zip but not zip(1);
+              # use 7z's zip mode so we don't depend on a separate install.
+              (cd dist && 7z a -tzip -bd "nomi-${VERSION}-${friendly}.zip" "nomi-${friendly}" >/dev/null)
               shasum -a 256 "dist/nomi-${VERSION}-${friendly}.zip" \
                 > "dist/nomi-${VERSION}-${friendly}.zip.sha256"
             else
