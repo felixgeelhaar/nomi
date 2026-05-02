@@ -21,10 +21,18 @@ dev:
 	@echo "Starting nomid development server..."
 	@go run -ldflags "$(LDFLAGS)" cmd/nomid/main.go
 
-# Production build
-build:
+# Production build (daemon + CLI client). The CLI ships as a separate
+# binary so headless users / CI / SSH-driven workflows can install
+# just `nomi` without pulling in the daemon and its WASM host.
+build: build-daemon build-cli
+
+build-daemon:
 	@echo "Building nomid $(VERSION) (commit $(COMMIT))..."
-	@go build -ldflags "$(LDFLAGS)" -o bin/nomid cmd/nomid/main.go
+	@go build -ldflags "$(LDFLAGS)" -o bin/nomid ./cmd/nomid
+
+build-cli:
+	@echo "Building nomi CLI $(VERSION)..."
+	@go build -ldflags "$(LDFLAGS)" -o bin/nomi ./cmd/nomi
 
 # Run tests
 test:

@@ -76,7 +76,8 @@ they act, memory you can read and edit. Open-source all the way down.
 | **Scoop (Windows)** | `scoop bucket add nomi https://github.com/felixgeelhaar/scoop-bucket && scoop install nomi` |
 | **DMG / MSI / AppImage / DEB** | [Releases page](https://github.com/felixgeelhaar/nomi/releases/latest) |
 | **Docker (headless `nomid`)** | `docker run -p 8080:8080 -v nomi-data:/data ghcr.io/felixgeelhaar/nomi` |
-| **`go install`** | `go install github.com/felixgeelhaar/nomi/cmd/nomid@latest` |
+| **`go install` (daemon)** | `go install github.com/felixgeelhaar/nomi/cmd/nomid@latest` |
+| **`go install` (CLI)** | `go install github.com/felixgeelhaar/nomi/cmd/nomi@latest` |
 
 The desktop bundle ships the `nomid` runtime as a Tauri sidecar — one
 installer, both binaries. **Docker / `go install` give you just the
@@ -84,6 +85,26 @@ daemon** — drop it on a homelab box, a VPS, a Kubernetes pod, anywhere
 that runs Linux. Configure via a YAML seed manifest at first boot, or
 drive the REST API directly. Full guide:
 [`docs/headless.md`](docs/headless.md).
+
+For headless interaction without the desktop UI, the **`nomi` CLI**
+talks to the daemon over the same REST surface:
+
+```bash
+nomi status                              # health + version + active default LLM
+nomi run "summarize notes.md"            # submit, drive, print output
+nomi list runs                           # most recent runs as a table
+nomi list approvals                      # pending approval cards
+nomi tail                                # follow the SSE event stream live
+nomi seed examples/seed.yaml             # apply a YAML manifest
+
+# Drive a remote daemon over SSH-fetched token
+NOMI_TOKEN=$(ssh server 'docker exec nomi cat /data/auth.token') \
+    nomi --url=https://nomi.example.com run "what changed today?"
+```
+
+The CLI auto-resolves URL + token from `$NOMI_DATA_DIR/api.endpoint`
+and `$NOMI_DATA_DIR/auth.token` when it runs on the same host as the
+daemon.
 
 ```yaml
 # examples/seed.yaml — mounted at /data/seed.yaml or pointed at via NOMI_SEED.
@@ -297,6 +318,9 @@ v0.2 candidates (track in [`.roady/`](.roady/) and on the
   `media.describe_image` ships
 - **Streaming chat tokens in the UI** — wire is done, the live-render
   pass is next
+- **`nomi tui`** — full bubbletea TUI on top of the existing CLI for
+  SSH-only workflows: chat list, plan-review with inline edit, live
+  approvals, event tail
 - **Cross-device sync** (opt-in, end-to-end-encrypted) — the local-first
   story extended to two laptops, not weakened to a cloud one
 
