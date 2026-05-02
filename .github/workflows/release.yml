@@ -603,7 +603,7 @@ jobs:
           required=(darwin-arm64 darwin-amd64 linux-arm64 linux-amd64)
           declare -A SHAS
           for arch in "${required[@]}"; do
-            FILE="cli/nomi-v${VERSION}-${arch}.tar.gz"
+            FILE="cli/nomi-${VERSION}-${arch}.tar.gz"
             if [ ! -f "$FILE" ]; then
               echo "::error::missing CLI artifact $FILE; CLI build may have failed"
               exit 1
