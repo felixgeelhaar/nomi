@@ -18,19 +18,24 @@ interface ThinkingBlockProps {
   status: string;
   steps: Step[];
   plan?: Plan;
+  /** Display name of the assistant whose run this is. Used in status copy
+   *  ("X is thinking...", "X needs your approval") so the user sees the
+   *  agent they actually configured, not a generic "Nomi". */
+  agentName?: string;
 }
 
-export function ThinkingBlock({ status, steps, plan }: ThinkingBlockProps) {
+export function ThinkingBlock({ status, steps, plan, agentName }: ThinkingBlockProps) {
   const [expanded, setExpanded] = useState(false);
 
+  const who = agentName?.trim() || "Nomi";
   const getStatusLabel = () => {
     switch (status) {
       case "planning":
-        return "Nomi is thinking...";
+        return `${who} is thinking...`;
       case "executing":
-        return "Nomi is working...";
+        return `${who} is working...`;
       case "awaiting_approval":
-        return "Nomi needs your approval";
+        return `${who} needs your approval`;
       case "paused":
         return "Paused";
       case "completed":
@@ -127,9 +132,10 @@ interface ApprovalCardProps {
   approval: Approval;
   onResolve: (approved: boolean, remember: boolean) => void;
   processing?: boolean;
+  agentName?: string;
 }
 
-export function ApprovalCard({ approval, onResolve, processing }: ApprovalCardProps) {
+export function ApprovalCard({ approval, onResolve, processing, agentName }: ApprovalCardProps) {
   const [showRaw, setShowRaw] = useState(false);
   const [unlockApprove, setUnlockApprove] = useState(true);
   const [rememberChoice, setRememberChoice] = useState(false);
@@ -152,7 +158,7 @@ export function ApprovalCard({ approval, onResolve, processing }: ApprovalCardPr
         <AlertCircle className={`w-5 h-5 mt-0.5 ${dangerous ? "text-red-600" : "text-amber-600"}`} />
         <div className="flex-1 space-y-2">
           <p className={`text-sm font-medium ${dangerous ? "text-red-900" : "text-amber-900"}`}>
-            Nomi needs your approval
+            {(agentName?.trim() || "Nomi") + " needs your approval"}
           </p>
           <p className={`text-sm ${dangerous ? "text-red-800" : "text-amber-800"}`}>
             {copy.summary}
