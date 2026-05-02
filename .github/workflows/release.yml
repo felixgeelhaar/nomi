@@ -174,6 +174,15 @@ jobs:
           # rather than the Rust target triple used for the Tauri
           # sidecar to keep formula URLs human-readable.
           mkdir -p dist
+          # openssl is on every runner; shasum/sha256sum aren't.
+          # Output format matches `shasum -a 256` so the .sha256 sidecars
+          # remain verifiable with `shasum -c` / `sha256sum -c`.
+          sha256_sidecar() {
+            local file="$1"
+            local hash
+            hash=$(openssl dgst -sha256 "$file" | awk '{print $NF}')
+            printf '%s  %s\n' "$hash" "$(basename "$file")" > "${file}.sha256"
+          }
           package_cli() {
             local goos="$1" goarch="$2" friendly="$3" ext="${4:-}"
             local stage="dist/nomi-${friendly}"
@@ -189,12 +198,10 @@ jobs:
               # GitHub-hosted windows-latest runners ship 7-Zip but not zip(1);
               # use 7z's zip mode so we don't depend on a separate install.
               (cd dist && 7z a -tzip -bd "nomi-${VERSION}-${friendly}.zip" "nomi-${friendly}" >/dev/null)
-              shasum -a 256 "dist/nomi-${VERSION}-${friendly}.zip" \
-                > "dist/nomi-${VERSION}-${friendly}.zip.sha256"
+              sha256_sidecar "dist/nomi-${VERSION}-${friendly}.zip"
             else
               tar -C dist -czf "dist/nomi-${VERSION}-${friendly}.tar.gz" "nomi-${friendly}"
-              shasum -a 256 "dist/nomi-${VERSION}-${friendly}.tar.gz" \
-                > "dist/nomi-${VERSION}-${friendly}.tar.gz.sha256"
+              sha256_sidecar "dist/nomi-${VERSION}-${friendly}.tar.gz"
             fi
             rm -rf "$stage"
           }
@@ -258,7 +265,18 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-        run: npx tauri build ${{ matrix.tauri_args }}
+        shell: bash
+        run: |
+          # Empty Apple secrets cause Tauri's bundler to invoke
+          # `security import` with an empty .p12 and abort. Unset them
+          # entirely when no signing cert is configured so the bundler
+          # produces an unsigned .app/.dmg; signing-05 layers signing
+          # on top in a later workflow.
+          if [ -z "${APPLE_CERTIFICATE}" ]; then
+            unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD \
+                  APPLE_SIGNING_IDENTITY APPLE_ID APPLE_TEAM_ID APPLE_PASSWORD
+          fi
+          npx tauri build ${{ matrix.tauri_args }}
 
       - name: Sign Windows MSI + NSIS bundles
         if: matrix.platform == 'windows-latest' && env.WINDOWS_CERTIFICATE != ''
