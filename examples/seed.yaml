@@ -1,0 +1,30 @@
+# Example nomid seed manifest.
+#
+# Mount or set NOMI_SEED to point at a copy of this file. The daemon
+# applies it on every boot, idempotently — so editing the file and
+# restarting picks up the diff. New rows are added; existing rows
+# (matched by name) are left alone.
+#
+# Default location: $NOMI_DATA_DIR/seed.yaml. Override with NOMI_SEED.
+
+provider:
+  name: Ollama (Local)
+  type: local                              # local | remote
+  endpoint: http://host.docker.internal:11434
+  model_ids:
+    - qwen2.5:14b
+    - llama3.2:latest
+  default_model: qwen2.5:14b               # optional; defaults to model_ids[0]
+  # api_key: ""                            # remote providers only
+
+assistants:
+  - template_id: research-assistant
+    name: My Researcher
+    workspace: /data/workspace/research
+  - template_id: code-reviewer
+    name: PR Reviewer
+    workspace: /data/workspace/code
+
+settings:
+  safety_profile: balanced                 # cautious | balanced | fast
+  onboarding_complete: true                # skip the desktop wizard if a UI client connects

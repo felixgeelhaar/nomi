@@ -39,8 +39,11 @@ Personal-AI products keep your memory in someone else's database. Nomi
 makes every step a contract: a plan you approve, tools that ask before
 they act, memory you can read and edit. Open-source all the way down.
 
-- **Local-first.** Data, conversations, secrets — all on your machine.
-  SQLite, OS keyring, no telemetry, no account.
+- **Local-first by default — self-hosted by choice.** On a laptop the
+  data, conversations, and secrets stay on your machine (SQLite, OS
+  keyring, no telemetry, no account). On a homelab box or a cloud VM
+  the same `nomid` daemon runs headless behind your reverse proxy —
+  see [`docs/headless.md`](docs/headless.md).
 - **Plan review before execution.** Every multi-step task is laid out
   in full before any tool runs. You see the plan; you approve the plan.
 - **Capability-gated tools.** `filesystem.write`, `command.exec`,
@@ -76,8 +79,27 @@ they act, memory you can read and edit. Open-source all the way down.
 | **`go install`** | `go install github.com/felixgeelhaar/nomi/cmd/nomid@latest` |
 
 The desktop bundle ships the `nomid` runtime as a Tauri sidecar — one
-installer, both binaries. Docker / `go install` give you just the
-daemon for headless homelab deploys.
+installer, both binaries. **Docker / `go install` give you just the
+daemon** — drop it on a homelab box, a VPS, a Kubernetes pod, anywhere
+that runs Linux. Configure via a YAML seed manifest at first boot, or
+drive the REST API directly. Full guide:
+[`docs/headless.md`](docs/headless.md).
+
+```yaml
+# examples/seed.yaml — mounted at /data/seed.yaml or pointed at via NOMI_SEED.
+# Idempotent: edit + restart picks up the diff.
+provider:
+  name: Ollama
+  type: local
+  endpoint: http://host.docker.internal:11434
+  model_ids: [qwen2.5:14b]
+assistants:
+  - template_id: research-assistant
+    workspace: /data/workspace
+settings:
+  safety_profile: balanced
+  onboarding_complete: true
+```
 
 ## Who this is for
 

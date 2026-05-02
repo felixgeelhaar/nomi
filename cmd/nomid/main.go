@@ -45,6 +45,7 @@ import (
 	"sync"
 	"github.com/felixgeelhaar/nomi/internal/runtime"
 	"github.com/felixgeelhaar/nomi/internal/secrets"
+	"github.com/felixgeelhaar/nomi/internal/seed"
 	"github.com/felixgeelhaar/nomi/internal/storage/db"
 	"github.com/felixgeelhaar/nomi/internal/tools"
 	"github.com/felixgeelhaar/nomi/internal/tunnel"
@@ -113,6 +114,27 @@ func main() {
 
 	// Load application settings
 	settingsRepo := db.NewAppSettingsRepository(database)
+
+	// Headless / docker / k8s bootstrap. Reads a YAML manifest the
+	// daemon's first boot, applies it idempotently. Path resolution
+	// order: $NOMI_SEED env var → $NOMI_DATA_DIR/seed.yaml. Idempotent;
+	// editing the file and restarting picks up the diff. A malformed
+	// seed logs but does not abort startup — a previously-working
+	// install shouldn't fall over because of a typo in seed.yaml.
+	seedPath := os.Getenv("NOMI_SEED")
+	if seedPath == "" {
+		seedPath = filepath.Join(dataDir, "seed.yaml")
+	}
+	if err := seed.Apply(seedPath, seed.Deps{
+		DB:         database,
+		Providers:  db.NewProviderProfileRepository(database),
+		Assistants: db.NewAssistantRepository(database),
+		Settings:   settingsRepo,
+		Globals:    db.NewGlobalSettingsRepository(database),
+		Secrets:    secretStore,
+	}); err != nil {
+		log.Printf("seed: %v (continuing without seeded state)", err)
+	}
 
 	// Event system
 	eventStore := db.NewEventRepository(database)
