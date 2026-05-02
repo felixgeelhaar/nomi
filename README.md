@@ -70,14 +70,28 @@ they act, memory you can read and edit. Open-source all the way down.
 
 ## Install
 
+**Desktop app (Tauri shell + bundled `nomid` daemon):**
+
 | Channel | Command |
 |---|---|
-| **Homebrew (macOS)** | `brew install --cask felixgeelhaar/tap/nomi` |
-| **Scoop (Windows)** | `scoop bucket add nomi https://github.com/felixgeelhaar/scoop-bucket && scoop install nomi` |
+| **Homebrew Cask (macOS)** | `brew install --cask felixgeelhaar/tap/nomi` |
+| **Scoop (Windows)** | `scoop bucket add nomi https://github.com/felixgeelhaar/scoop-bucket && scoop install nomi-desktop` |
 | **DMG / MSI / AppImage / DEB** | [Releases page](https://github.com/felixgeelhaar/nomi/releases/latest) |
-| **Docker (headless `nomid`)** | `docker run -p 8080:8080 -v nomi-data:/data ghcr.io/felixgeelhaar/nomi` |
-| **`go install` (daemon)** | `go install github.com/felixgeelhaar/nomi/cmd/nomid@latest` |
-| **`go install` (CLI)** | `go install github.com/felixgeelhaar/nomi/cmd/nomi@latest` |
+
+**CLI (`nomi` — drives a local or remote daemon over REST):**
+
+| Channel | Command |
+|---|---|
+| **Homebrew (macOS / Linux)** | `brew install felixgeelhaar/tap/nomi` |
+| **Scoop (Windows)** | `scoop bucket add nomi https://github.com/felixgeelhaar/scoop-bucket && scoop install nomi` |
+| **`go install`** | `go install github.com/felixgeelhaar/nomi/cmd/nomi@latest` |
+
+**Headless daemon (`nomid`):**
+
+| Channel | Command |
+|---|---|
+| **Docker** | `docker run -p 8080:8080 -v nomi-data:/data ghcr.io/felixgeelhaar/nomi` |
+| **`go install`** | `go install github.com/felixgeelhaar/nomi/cmd/nomid@latest` |
 
 The desktop bundle ships the `nomid` runtime as a Tauri sidecar — one
 installer, both binaries. **Docker / `go install` give you just the

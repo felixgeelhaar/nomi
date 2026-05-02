@@ -1,26 +1,28 @@
 {
   "version": "0.1.0",
-  "description": "Local-first, state-driven agent platform",
-  "homepage": "https://nomi.ai/",
+  "description": "CLI client for the Nomi local-first agent platform",
+  "homepage": "https://github.com/felixgeelhaar/nomi",
   "license": "Apache-2.0",
-  "url": "https://github.com/felixgeelhaar/nomi/releases/download/v0.1.0/Nomi_0.1.0_x64_en-US.msi",
-  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/felixgeelhaar/nomi/releases/download/v0.1.0/Nomi_0.1.0_x64_en-US.msi",
-      "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+      "url": "https://github.com/felixgeelhaar/nomi/releases/download/v0.1.0/nomi-v0.1.0-windows-amd64.zip",
+      "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "extract_dir": "nomi-windows-amd64"
     }
   },
-  "installer": {
-    "type": "msi"
-  },
-  "uninstaller": {
-    "type": "msi"
-  },
+  "bin": "nomi.exe",
   "checkver": {
     "github": "https://github.com/felixgeelhaar/nomi"
   },
   "autoupdate": {
-    "url": "https://github.com/felixgeelhaar/nomi/releases/download/v$version/Nomi_$version_x64_en-US.msi"
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/felixgeelhaar/nomi/releases/download/v$version/nomi-v$version-windows-amd64.zip",
+        "extract_dir": "nomi-windows-amd64"
+      }
+    },
+    "hash": {
+      "url": "$url.sha256"
+    }
   }
 }

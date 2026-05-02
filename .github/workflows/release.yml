@@ -156,6 +156,54 @@ jobs:
               ;;
           esac
 
+      - name: Build + package nomi CLI per target
+        shell: bash
+        env:
+          LDFLAGS: "-s -w -X github.com/felixgeelhaar/nomi/internal/buildinfo.Version=${{ env.VERSION }} -X github.com/felixgeelhaar/nomi/internal/buildinfo.Commit=${{ env.COMMIT }} -X github.com/felixgeelhaar/nomi/internal/buildinfo.BuildDate=${{ env.BUILD_DATE }}"
+        run: |
+          # Standalone CLI archive — installed by Homebrew formula and
+          # Scoop manifest. Single binary, ~15 MB, no daemon dependency.
+          # Tarball name uses {os}-{arch} (Homebrew/Scoop convention)
+          # rather than the Rust target triple used for the Tauri
+          # sidecar to keep formula URLs human-readable.
+          mkdir -p dist
+          package_cli() {
+            local goos="$1" goarch="$2" friendly="$3" ext="${4:-}"
+            local stage="dist/nomi-${friendly}"
+            rm -rf "$stage"
+            mkdir -p "$stage"
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build \
+              -trimpath -ldflags "$LDFLAGS" \
+              -o "${stage}/nomi${ext}" \
+              ./cmd/nomi
+            cp LICENSE "${stage}/" 2>/dev/null || true
+            cp README.md "${stage}/" 2>/dev/null || true
+            if [ "$goos" = "windows" ]; then
+              (cd dist && zip -qr "nomi-${VERSION}-${friendly}.zip" "nomi-${friendly}")
+              shasum -a 256 "dist/nomi-${VERSION}-${friendly}.zip" \
+                > "dist/nomi-${VERSION}-${friendly}.zip.sha256"
+            else
+              tar -C dist -czf "dist/nomi-${VERSION}-${friendly}.tar.gz" "nomi-${friendly}"
+              shasum -a 256 "dist/nomi-${VERSION}-${friendly}.tar.gz" \
+                > "dist/nomi-${VERSION}-${friendly}.tar.gz.sha256"
+            fi
+            rm -rf "$stage"
+          }
+          case "${{ matrix.platform }}" in
+            macos-14)
+              package_cli darwin arm64 darwin-arm64
+              package_cli darwin amd64 darwin-amd64
+              ;;
+            ubuntu-latest)
+              package_cli linux amd64 linux-amd64
+              package_cli linux arm64 linux-arm64
+              ;;
+            windows-latest)
+              package_cli windows amd64 windows-amd64 .exe
+              ;;
+          esac
+          ls -la dist/
+
       - name: Install JS deps
         working-directory: app
         run: npm ci
