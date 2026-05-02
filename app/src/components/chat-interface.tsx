@@ -669,7 +669,9 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
                       <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
                         <Bot className="w-3.5 h-3.5 text-primary" />
                       </div>
-                      <span className="text-xs font-medium text-muted-foreground">Nomi</span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {assistants.find((a) => a.id === chatData.run.assistant_id)?.name || "Nomi"}
+                      </span>
                     </div>
                     <PlanReviewCard
                       plan={chatData.plan}
