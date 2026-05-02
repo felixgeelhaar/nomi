@@ -433,14 +433,33 @@ jobs:
           echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Render manifest with new version + sha
+      - name: Download CLI zip from draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p cli
+          gh release download "$TAG" --dir cli --pattern 'nomi-*-windows-amd64.zip' --clobber
+
+      - name: Compute CLI sha256
+        id: cli_meta
+        run: |
+          ZIP="$(find cli -maxdepth 1 -name '*.zip' -type f | head -1)"
+          if [ -z "$ZIP" ]; then
+            echo "::error::no Windows CLI zip in release; CLI build may have failed"
+            exit 1
+          fi
+          SHA="$(sha256sum "$ZIP" | awk '{print $1}')"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Render desktop + CLI manifests with new version + sha
         env:
           VERSION: ${{ steps.meta.outputs.version }}
           SHA: ${{ steps.meta.outputs.sha }}
+          CLI_SHA: ${{ steps.cli_meta.outputs.sha }}
         run: |
           mkdir -p out/bucket
-          # jq keeps the JSON formatting consistent and avoids the
-          # escaping pitfalls of sed-on-JSON.
+          # Desktop (MSI) manifest -> nomi-desktop.json
           URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Nomi_${VERSION}_x64_en-US.msi"
           jq \
             --arg version "${VERSION}" \
@@ -449,6 +468,16 @@ jobs:
             '.version = $version
              | .url = $url
              | .hash = $sha
+             | .architecture["64bit"].url = $url
+             | .architecture["64bit"].hash = $sha' \
+            scoop-bucket/bucket/nomi-desktop.json > out/bucket/nomi-desktop.json
+          # CLI zip manifest -> nomi.json
+          CLI_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/nomi-v${VERSION}-windows-amd64.zip"
+          jq \
+            --arg version "${VERSION}" \
+            --arg url "${CLI_URL}" \
+            --arg sha "${CLI_SHA}" \
+            '.version = $version
              | .architecture["64bit"].url = $url
              | .architecture["64bit"].hash = $sha' \
             scoop-bucket/bucket/nomi.json > out/bucket/nomi.json
@@ -470,14 +499,15 @@ jobs:
           git config user.email "release-bot@nomi.ai"
           git checkout -b "${BRANCH}"
           mkdir -p bucket
+          cp ../out/bucket/nomi-desktop.json bucket/nomi-desktop.json
           cp ../out/bucket/nomi.json bucket/nomi.json
-          git add bucket/nomi.json
+          git add bucket/nomi-desktop.json bucket/nomi.json
           git commit -m "Bump nomi to ${VERSION}"
           git push -u origin "${BRANCH}"
           gh pr create \
             --repo "${BUCKET_REPO}" \
             --title "Bump nomi to ${VERSION}" \
-            --body "Automated bucket bump for [nomi v${VERSION}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})." \
+            --body "Automated bucket bump for [nomi v${VERSION}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}).\n\nUpdates desktop MSI manifest and CLI zip manifest." \
             --head "${BRANCH}"
 
   bump-homebrew-cask:
@@ -523,13 +553,65 @@ jobs:
             -e "s|^  sha256 :no_check$|  sha256 \"${{ steps.meta.outputs.sha }}\"|" \
             homebrew-tap/Casks/nomi.rb > out/Casks/nomi.rb
 
+      - name: Download CLI tarballs from draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p cli
+          gh release download "$TAG" --dir cli --pattern 'nomi-*-darwin-arm64.tar.gz' --clobber
+          gh release download "$TAG" --dir cli --pattern 'nomi-*-darwin-amd64.tar.gz' --clobber
+          gh release download "$TAG" --dir cli --pattern 'nomi-*-linux-arm64.tar.gz' --clobber
+          gh release download "$TAG" --dir cli --pattern 'nomi-*-linux-amd64.tar.gz' --clobber
+
+      - name: Compute CLI sha256s + render formula
+        id: cli_meta
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          mkdir -p out/Formula
+          required=(darwin-arm64 darwin-amd64 linux-arm64 linux-amd64)
+          declare -A SHAS
+          for arch in "${required[@]}"; do
+            FILE="cli/nomi-v${VERSION}-${arch}.tar.gz"
+            if [ ! -f "$FILE" ]; then
+              echo "::error::missing CLI artifact $FILE; CLI build may have failed"
+              exit 1
+            fi
+            SHAS[$arch]="$(sha256sum "$FILE" | awk '{print $1}')"
+          done
+
+          # Stamp version + each per-arch sha256 into the formula. The
+          # source uses `0000…` placeholders in a deterministic order:
+          # darwin-arm64, darwin-amd64, linux-arm64, linux-amd64. Use awk
+          # to replace them positionally so we don't need fragile context
+          # matching.
+          awk -v v="${VERSION}" \
+              -v s1="${SHAS[darwin-arm64]}" \
+              -v s2="${SHAS[darwin-amd64]}" \
+              -v s3="${SHAS[linux-arm64]}" \
+              -v s4="${SHAS[linux-amd64]}" '
+            BEGIN { i = 0 }
+            /^  version "/ { print "  version \"" v "\""; next }
+            /^      sha256 "0+"/ {
+              i++
+              if (i == 1) print "      sha256 \"" s1 "\""
+              else if (i == 2) print "      sha256 \"" s2 "\""
+              else if (i == 3) print "      sha256 \"" s3 "\""
+              else if (i == 4) print "      sha256 \"" s4 "\""
+              else print
+              next
+            }
+            { print }
+          ' homebrew-tap/Formula/nomi.rb > out/Formula/nomi.rb
+
       - name: Open auto-bump PR against tap repo
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           TAP_REPO: ${{ vars.HOMEBREW_TAP_REPO }}
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          # Clone the tap, copy the rendered cask in, push a branch, open a PR.
+          # Clone the tap, copy rendered cask + formula in, push a branch, open a PR.
           # No HOMEBREW_TAP_GITHUB_TOKEN → skip with a warning so the
           # main release still publishes.
           if [ -z "${GH_TOKEN}" ]; then
@@ -542,13 +624,14 @@ jobs:
           git config user.name "nomi-release-bot"
           git config user.email "release-bot@nomi.ai"
           git checkout -b "${BRANCH}"
-          mkdir -p Casks
+          mkdir -p Casks Formula
           cp ../out/Casks/nomi.rb Casks/nomi.rb
-          git add Casks/nomi.rb
+          cp ../out/Formula/nomi.rb Formula/nomi.rb
+          git add Casks/nomi.rb Formula/nomi.rb
           git commit -m "Bump nomi to ${VERSION}"
           git push -u origin "${BRANCH}"
           gh pr create \
             --repo "${TAP_REPO}" \
             --title "Bump nomi to ${VERSION}" \
-            --body "Automated cask bump for [nomi v${VERSION}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})." \
+            --body "Automated tap bump for [nomi v${VERSION}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}).\n\nUpdates desktop cask and CLI formula." \
             --head "${BRANCH}"
