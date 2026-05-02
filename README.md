@@ -75,7 +75,6 @@ they act, memory you can read and edit. Open-source all the way down.
 | Channel | Command |
 |---|---|
 | **Homebrew Cask (macOS)** | `brew install --cask felixgeelhaar/tap/nomi` |
-| **Scoop (Windows)** | `scoop bucket add nomi https://github.com/felixgeelhaar/scoop-bucket && scoop install nomi-desktop` |
 | **DMG / MSI / AppImage / DEB** | [Releases page](https://github.com/felixgeelhaar/nomi/releases/latest) |
 
 **CLI (`nomi` — drives a local or remote daemon over REST):**
@@ -83,7 +82,7 @@ they act, memory you can read and edit. Open-source all the way down.
 | Channel | Command |
 |---|---|
 | **Homebrew (macOS / Linux)** | `brew install felixgeelhaar/tap/nomi` |
-| **Scoop (Windows)** | `scoop bucket add nomi https://github.com/felixgeelhaar/scoop-bucket && scoop install nomi` |
+| **Direct download (Windows)** | [Releases page](https://github.com/felixgeelhaar/nomi/releases/latest) — `nomi-*-windows-amd64.zip` |
 | **`go install`** | `go install github.com/felixgeelhaar/nomi/cmd/nomi@latest` |
 
 **Headless daemon (`nomid`):**
