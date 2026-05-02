@@ -398,12 +398,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
         run: |
           mkdir -p assets
           # The matrix uploaded each platform's artifacts to the same
           # draft release; gather them all so we can build a single
           # release-wide checksum file users can verify against.
-          gh release download "$TAG" --dir assets --clobber
+          # --repo is explicit because this job doesn't `actions/checkout`,
+          # so gh has no git remote to infer the repo from.
+          gh release download "$TAG" --repo "$REPO" --dir assets --clobber
 
       - name: Compute combined SHA256SUMS
         run: |
