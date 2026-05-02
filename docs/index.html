@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Nomi — Agents you can audit. On data you keep.</title>
+<meta name="description" content="Local-first, state-driven agent runtime. Plan, approve, run — all on your machine. Open source, Apache 2.0." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<meta property="og:title" content="Nomi — Agents you can audit. On data you keep." />
+<meta property="og:description" content="Local-first, state-driven agent runtime. Plan, approve, run — all on your machine." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://felixgeelhaar.github.io/nomi/" />
+<meta property="og:image" content="https://felixgeelhaar.github.io/nomi/images/02-plan-review.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="stylesheet" href="site.css" />
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="#top"><span class="dot"></span> nomi</a>
+  <nav>
+    <a href="#how">How it works</a>
+    <a href="#diff">Why local-first</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/felixgeelhaar/nomi" rel="noopener">GitHub →</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="kicker">Open source · Apache 2.0 · v0.1.3</div>
+    <h1>Agents you can audit.<br/><span class="accent">On data you keep.</span></h1>
+    <p class="lede">
+      Nomi is a local-first agent runtime. Plan a task, approve every dangerous step, run it against your files and APIs — all on your machine. No prompt leaks. No vendor lock-in. No surprise bills.
+    </p>
+    <div class="cta-row">
+      <button class="copy" data-copy="brew install --cask felixgeelhaar/tap/nomi" title="Copy command">
+        <code>brew install --cask felixgeelhaar/tap/nomi</code>
+        <span class="copy-icon">⧉</span>
+      </button>
+      <a class="btn-secondary" href="https://github.com/felixgeelhaar/nomi" rel="noopener">GitHub →</a>
+    </div>
+    <div class="badges">
+      <span>macOS</span>
+      <span>Linux</span>
+      <span>Windows</span>
+      <span>Docker</span>
+      <span>Self-hosted</span>
+    </div>
+  </section>
+
+  <section class="screenshot">
+    <img src="images/02-plan-review.png" alt="Plan review screen showing a multi-step plan with approve/edit controls" loading="eager" />
+    <p class="caption">Every run starts as a plan you can read, edit and approve before a single tool fires.</p>
+  </section>
+
+  <section class="problem" id="problem">
+    <h2>The agent platforms you've seen all live in someone else's cloud.</h2>
+    <p>
+      OpenClaw, Hermes, Pi — they're impressive. They're also opaque. Your prompts, your file contents, your customer data — all crossing somebody else's network, retained on somebody else's terms, billed on somebody else's metric.
+    </p>
+    <p>
+      That's the wrong default for serious work. Nomi flips it: <strong>the agent runs on your laptop or your server, the data never leaves, the LLM provider is yours to choose</strong> — Ollama for fully offline, OpenAI / Anthropic / any OpenAI-compatible API when you want a frontier model.
+    </p>
+  </section>
+
+  <section class="how" id="how">
+    <h2>Plan. Approve. Run.</h2>
+    <p class="section-lede">A state machine runs every task. You see exactly what the agent will do <em>before</em> it does anything.</p>
+    <div class="steps">
+      <article class="step">
+        <span class="num">1</span>
+        <h3>Plan</h3>
+        <p>The agent decomposes your goal into discrete steps. Each step is a tool call with a capability tag — <code>filesystem.write</code>, <code>command.exec</code>, <code>llm.chat</code>.</p>
+        <img src="images/02-plan-review.png" alt="Plan review with approve/edit/cancel" />
+      </article>
+      <article class="step">
+        <span class="num">2</span>
+        <h3>Approve</h3>
+        <p>Anything beyond the assistant's permission ceiling pauses the run. Approve once, approve always, or deny — your call, on your terms.</p>
+        <img src="images/09-approvals.png" alt="Approval queue with pending tool calls" />
+      </article>
+      <article class="step">
+        <span class="num">3</span>
+        <h3>Run</h3>
+        <p>Tools execute against your files, your shell, your APIs. Every event is persisted and streamed live so you can audit what happened or replay it.</p>
+        <img src="images/05-events.png" alt="Live event stream of run execution" />
+      </article>
+    </div>
+  </section>
+
+  <section class="diff" id="diff">
+    <h2>Why local-first changes the math</h2>
+    <div class="diff-grid">
+      <div class="diff-card">
+        <h3>Your data stays on disk</h3>
+        <p>SQLite at <code>~/Library/Application Support/Nomi</code>. Memory, runs, plans, approvals — local files, your backups, your encryption.</p>
+      </div>
+      <div class="diff-card">
+        <h3>Bring your own LLM</h3>
+        <p>Ollama for offline. OpenAI, Anthropic, Mistral, Groq, vLLM — anything OpenAI-compatible. Per-assistant model override.</p>
+      </div>
+      <div class="diff-card">
+        <h3>Capability ceiling per assistant</h3>
+        <p>One assistant gets <code>filesystem.read</code>. Another gets <code>command.exec</code> with confirm. The runtime enforces it; rules can't be talked around.</p>
+      </div>
+      <div class="diff-card">
+        <h3>State you can interrogate</h3>
+        <p>Built on <code>statekit</code> — every run is a finite-state machine you can pause, resume, cancel and replay. No more lost agent sessions.</p>
+      </div>
+      <div class="diff-card">
+        <h3>Memory that's portable</h3>
+        <p>Mnemos persists context across runs. Workspace-scoped, exportable, inspectable — a real database, not a vector blob.</p>
+      </div>
+      <div class="diff-card">
+        <h3>Headless when you need it</h3>
+        <p>Drop <code>nomid</code> on a homelab box, a VPS, a Kubernetes pod. Drive over REST + SSE. YAML config-as-code in Git.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="screenshot-grid">
+    <figure>
+      <img src="images/01-chats.png" alt="Chat tab with assistant conversations" loading="lazy" />
+      <figcaption>Chats — multi-turn dialogue with any assistant</figcaption>
+    </figure>
+    <figure>
+      <img src="images/03-assistants.png" alt="Assistant configuration" loading="lazy" />
+      <figcaption>Assistants — per-role personas with permission scopes</figcaption>
+    </figure>
+    <figure>
+      <img src="images/04-memory.png" alt="Memory inspector" loading="lazy" />
+      <figcaption>Memory — workspace-scoped, queryable, exportable</figcaption>
+    </figure>
+    <figure>
+      <img src="images/06-plugins.png" alt="Plugin management" loading="lazy" />
+      <figcaption>Plugins — WASM sandbox, install or build your own</figcaption>
+    </figure>
+    <figure>
+      <img src="images/07-providers.png" alt="LLM provider profiles" loading="lazy" />
+      <figcaption>Providers — Ollama, OpenAI, Anthropic, anything compatible</figcaption>
+    </figure>
+    <figure>
+      <img src="images/08-safety.png" alt="Safety profile configuration" loading="lazy" />
+      <figcaption>Safety profiles — strict, balanced, permissive</figcaption>
+    </figure>
+  </section>
+
+  <section class="install" id="install">
+    <h2>Three ways to install</h2>
+
+    <div class="install-grid">
+      <div class="install-card">
+        <h3>Desktop</h3>
+        <p>Tauri shell + bundled <code>nomid</code> daemon. Menu-bar tray. Auto-updates.</p>
+        <pre><code>brew install --cask felixgeelhaar/tap/nomi</code></pre>
+        <p class="alt">or download <a href="https://github.com/felixgeelhaar/nomi/releases/latest">DMG / MSI / AppImage / DEB</a></p>
+      </div>
+      <div class="install-card">
+        <h3>CLI</h3>
+        <p>Drives a local or remote daemon over REST. Tail runs, approve from terminal, export config.</p>
+        <pre><code>brew install felixgeelhaar/tap/nomi</code></pre>
+        <p class="alt">or <code>go install github.com/felixgeelhaar/nomi/cmd/nomi@latest</code></p>
+      </div>
+      <div class="install-card">
+        <h3>Headless daemon</h3>
+        <p>Just <code>nomid</code>. Drop it on a VPS, a Kubernetes pod, anywhere. Configure with a YAML seed.</p>
+        <pre><code>docker run -p 8080:8080 -v nomi-data:/data \
+  ghcr.io/felixgeelhaar/nomi</code></pre>
+        <p class="alt">full guide: <a href="https://github.com/felixgeelhaar/nomi/blob/main/docs/headless.md">docs/headless.md</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="built-on">
+    <h2>Built on</h2>
+    <p class="section-lede">Nomi is composed of small, focused libraries — each useful on its own.</p>
+    <div class="lib-grid">
+      <a class="lib" href="https://github.com/felixgeelhaar/statekit" rel="noopener">
+        <h3>statekit</h3>
+        <p>Type-safe finite state machines for Go. Powers every run, plan and step transition.</p>
+      </a>
+      <a class="lib" href="https://github.com/felixgeelhaar/mnemos" rel="noopener">
+        <h3>mnemos</h3>
+        <p>Scoped, queryable agent memory. SQLite-backed, schema-versioned, importable.</p>
+      </a>
+      <a class="lib" href="https://github.com/felixgeelhaar/scout" rel="noopener">
+        <h3>scout</h3>
+        <p>Browser automation built for agents — observable DOM, semantic selectors, deterministic E2E.</p>
+      </a>
+      <a class="lib" href="https://github.com/felixgeelhaar/roady" rel="noopener">
+        <h3>roady</h3>
+        <p>Spec-driven planning + task tracking with hash-chained audit log. The roadmap engine for nomi itself.</p>
+      </a>
+    </div>
+  </section>
+
+  <section class="cta-final">
+    <h2>Stop pasting your data into someone else's cloud.</h2>
+    <p>Install Nomi, point it at a local Ollama or your favorite API, give it a goal. The plan is yours to read before anything runs.</p>
+    <div class="cta-row">
+      <button class="copy" data-copy="brew install --cask felixgeelhaar/tap/nomi">
+        <code>brew install --cask felixgeelhaar/tap/nomi</code>
+        <span class="copy-icon">⧉</span>
+      </button>
+      <a class="btn-secondary" href="https://github.com/felixgeelhaar/nomi" rel="noopener">Star on GitHub →</a>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-grid">
+    <div>
+      <span class="brand-mark"><span class="dot"></span> nomi</span>
+      <p class="muted">Local-first, state-driven agent runtime.</p>
+    </div>
+    <div>
+      <h4>Docs</h4>
+      <a href="https://github.com/felixgeelhaar/nomi#readme">README</a>
+      <a href="https://github.com/felixgeelhaar/nomi/blob/main/docs/headless.md">Headless guide</a>
+      <a href="https://github.com/felixgeelhaar/nomi/blob/main/docs/user-journeys.md">User journeys</a>
+    </div>
+    <div>
+      <h4>Code</h4>
+      <a href="https://github.com/felixgeelhaar/nomi">Source</a>
+      <a href="https://github.com/felixgeelhaar/nomi/releases">Releases</a>
+      <a href="https://github.com/felixgeelhaar/nomi/issues">Issues</a>
+    </div>
+    <div>
+      <h4>Built on</h4>
+      <a href="https://github.com/felixgeelhaar/statekit">statekit</a>
+      <a href="https://github.com/felixgeelhaar/mnemos">mnemos</a>
+      <a href="https://github.com/felixgeelhaar/scout">scout</a>
+      <a href="https://github.com/felixgeelhaar/roady">roady</a>
+    </div>
+  </div>
+  <p class="muted small">Apache 2.0 · © Felix Geelhaar</p>
+</footer>
+
+<script src="site.js" defer></script>
+</body>
+</html>
