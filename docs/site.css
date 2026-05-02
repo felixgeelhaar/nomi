@@ -169,7 +169,85 @@ h3 { font-size: 18px; font-weight: 600; }
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   padding: 5px 12px;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
+}
+
+.category {
+  font-size: 14px;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin: 0 0 18px 0;
+}
+
+/* audit log strip — earns the "audit" claim visibly. */
+.audit-strip {
+  margin: 48px auto 0;
+  max-width: 720px;
+  text-align: left;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.audit-strip-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+}
+.audit-strip pre {
+  margin: 0; border: 0; border-radius: 0;
+  font-size: 12.5px;
+  background: transparent;
+  padding: 12px 14px;
+}
+.audit-strip .ev-ok { color: var(--accent-2); }
+.audit-strip .ev-warn { color: #e0af68; }
+
+/* mid-page soft CTA after diff-grid. Re-engagement for skimmers. */
+.cta-soft {
+  margin-top: 48px;
+  text-align: center;
+  padding: 28px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+.cta-soft p {
+  margin: 0 0 14px 0;
+  color: var(--fg-muted);
+  font-size: 14px;
+}
+.cta-soft button.copy { font-size: 13px; }
+
+/* diff-card primary tier — visually weighted vs supporting cards */
+.diff-card.primary {
+  background: linear-gradient(180deg, var(--accent-soft) 0%, var(--bg-card) 60%);
+  border-color: var(--border-strong);
+}
+.diff-card.primary h3 { color: var(--fg); }
+.diff-card.primary strong { color: var(--accent); }
+
+/* built-on lead-card weighting */
+.lib-lead {
+  position: relative;
+}
+.lib-lead h3 { font-size: 22px; }
+.lib-lead p { font-size: 15px; }
+.lib-tag {
+  position: absolute; top: 18px; right: 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+  letter-spacing: 0.04em;
 }
 .hero h1 .accent { color: var(--accent); }
 .lede {
