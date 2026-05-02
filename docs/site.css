@@ -108,10 +108,12 @@ code:not(pre code) {
   font-weight: 700;
 }
 
-.dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
+.mark {
+  display: inline-block;
+  border-radius: 5px;
+  vertical-align: text-bottom;
+  /* Tauri icon is 512x512 with built-in transparent corners; sized to
+     match the brand text x-height. */
 }
 
 .nav nav {
