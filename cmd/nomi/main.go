@@ -35,6 +35,12 @@ SUBCOMMANDS
     status                 Show daemon health + version + active default.
     seed <path>            Apply a seed.yaml manifest against the running
                            daemon (useful for ad-hoc reconfig).
+    export [-o file]       Snapshot the daemon's full config as YAML
+                           (providers, default LLM, assistants,
+                           settings, preferences, plugin states). Secrets
+                           are exported as references only.
+    import <path>          Apply an exported snapshot idempotently —
+                           reproduce a setup on another machine.
     version                Print the CLI version.
 
 FLAGS (apply to every subcommand)
@@ -78,6 +84,10 @@ func main() {
 		os.Exit(statusCmd(common, args))
 	case "seed":
 		os.Exit(seedCmd(common, args))
+	case "export":
+		os.Exit(exportCmd(common, args))
+	case "import":
+		os.Exit(importCmd(common, args))
 	case "version", "--version", "-v":
 		fmt.Println("nomi cli v0.1.0")
 		os.Exit(0)

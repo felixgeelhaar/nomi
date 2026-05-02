@@ -88,6 +88,13 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 		c.JSON(http.StatusOK, buildinfo.Current())
 	})
 
+	// Config export / import. Snapshot the user-configured surface as
+	// YAML, restore it on another machine. Secrets are exported as
+	// references only; plaintext stays in the secrets store.
+	configServer := NewConfigServer(cfg.DB, cfg.Secrets)
+	r.GET("/config/export", configServer.Export)
+	r.POST("/config/import", configServer.Import)
+
 	// Auth-token rotation. Authenticated under the CURRENT token; the
 	// response carries the new token once. Disabled when the router was
 	// built with a static token (tests) since rotation needs the store.

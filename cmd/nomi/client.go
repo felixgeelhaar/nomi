@@ -164,6 +164,27 @@ func (c *Client) Put(path string, body, out any) error {
 	return json.Unmarshal(raw, out)
 }
 
+// newBufferReader wraps a byte slice in an io.Reader. Used by raw-YAML
+// requests where bytes.NewReader would force the caller to import
+// `bytes`; keeping it here gives subcommand files a smaller import set.
+func newBufferReader(b []byte) io.Reader {
+	return &byteReader{data: b}
+}
+
+type byteReader struct {
+	data []byte
+	off  int
+}
+
+func (b *byteReader) Read(p []byte) (int, error) {
+	if b.off >= len(b.data) {
+		return 0, io.EOF
+	}
+	n := copy(p, b.data[b.off:])
+	b.off += n
+	return n, nil
+}
+
 // printJSON formats v as indented JSON to stdout. Used when --json is
 // passed; subcommand code falls back to its own table renderer
 // otherwise.

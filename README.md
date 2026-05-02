@@ -96,6 +96,8 @@ nomi list runs                           # most recent runs as a table
 nomi list approvals                      # pending approval cards
 nomi tail                                # follow the SSE event stream live
 nomi seed examples/seed.yaml             # apply a YAML manifest
+nomi export -o nomi.yaml                 # snapshot full config (commit to git)
+nomi import nomi.yaml                    # reproduce that config on another box
 
 # Drive a remote daemon over SSH-fetched token
 NOMI_TOKEN=$(ssh server 'docker exec nomi cat /data/auth.token') \
