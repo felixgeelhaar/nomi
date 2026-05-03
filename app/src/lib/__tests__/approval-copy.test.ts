@@ -21,8 +21,28 @@ describe("approvalCopy", () => {
     expect(copy.summary).toContain("Write 2 KB to /tmp/readme.md");
   });
 
-  it("falls back to conservative unknown capability guidance", () => {
-    const copy = approvalCopy("unknown.capability", {});
-    expect(copy.summary).toContain("Ask a developer");
+  it("falls back to a plain-English sentence for unknown capabilities", () => {
+    // Never tell the user to "ask a developer" — that's a product-failure
+    // signal. The fallback should still be readable by a non-developer.
+    const copy = approvalCopy("network.something", {});
+    expect(copy.summary).not.toContain("Ask a developer");
+    expect(copy.summary).toContain("something");
+    expect(copy.summary.toLowerCase()).toContain("allow this assistant");
+  });
+
+  it("falls back without splitting non-dotted capability strings", () => {
+    const copy = approvalCopy("weirdcap", {});
+    expect(copy.summary).not.toContain("Ask a developer");
+    expect(copy.summary).toContain("weirdcap");
+  });
+
+  it("renders plain-English copy for filesystem.list with a path", () => {
+    const copy = approvalCopy("filesystem.list", { input: { path: "/tmp" } });
+    expect(copy.summary).toContain("/tmp");
+  });
+
+  it("renders plain-English copy for llm.chat", () => {
+    const copy = approvalCopy("llm.chat", {});
+    expect(copy.summary.toLowerCase()).toContain("language model");
   });
 });

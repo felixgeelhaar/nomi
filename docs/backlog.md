@@ -882,3 +882,246 @@ Cross-cutting V1.3 audit: every user-visible error message in Nomi should explai
 Builds on the already-shipped first-run-wizard (three-screen flow at app/src/components/onboarding/wizard.tsx with Ollama auto-detection via check_ollama_reachable preselecting "ollama" when reachable, fallback to user-chosen anthropic/openai with API-key entry on the next screen) by closing the three remaining gaps that prevent a non-technical user from going from "wizard finished" to "I asked something useful and it worked." Surfaced during V1.3 testing on 2026-04-29 when a manually-created "Custom" assistant had capabilities=["filesystem.read","web"] but a policy rule for command.exec → and the runtime silently denied with "permission denied" instead of running the task. (1) Pre-configured ceilings on bundled assistants — every entry in templates/built-in.json declares a sensible capability ceiling matched to its policy rules so the wizard-completion path never lands in the silent-deny trap. The six existing templates (Research Assistant, Inbox Triage, Writing Partner, Learning Tutor, Code Reviewer, Custom) each get capabilities aligned with their policy: e.g., Code Reviewer ceiling = ["filesystem","command","web"] paired with command.exec → confirm(allowed_binaries:[git,go,npm]) so first-task always either runs or hits a confirm prompt with a clear approval — never a deny. The Custom template gets all three families pre-declared with confirm modes. Acceptance: SQL query "select capabilities, permission_policy from assistants where source='built-in'" shows every policy rule's family is present in capabilities. (2) Outcome-first connector flow — the Connections settings tab today asks "configure Telegram / Slack / Discord / Gmail / Calendar / GitHub" (developer-framed). Add a parallel surface invoked from wizard completion + a persistent "Connect" button on the Chats tab: "What do you want Nomi to do?" with outcome cards — "Read my email" (offers Gmail OAuth), "Triage my GitHub PRs" (offers GitHub App), "Summarize my Slack channels" (offers Slack), "Capture notes to my vault" (offers Obsidian) — each tile encapsulates the connector + permission setup as a single guided step. Existing Settings → Connections remains for power users. (3) First-task verification — after wizard completes, runtime auto-creates a hello-world Run against the chosen assistant with goal "Say hello to me" so the user sees an LLM response (and any provider misconfiguration) before they author their first real task. If the verification run fails, the wizard re-opens at the failed step with a specific actionable error (leveraging the Error Message Audit feature). Out of scope (deferred to its own entry): one-line installer / Homebrew tap / code-signed Tauri bundle for non-toolchain users — that's packaging-shaped and deserves separate roady decomposition. Trade-off: pre-configured ceilings widen the default permission surface compared to a strict allowlist, but the runtime's existing confirm-prompt + per-input remembered-decision flow means each capability still requires user assent the first time it's exercised — no auto-grants.
 
 ---
+
+## Reposition v0.2 around coding-agent ICP ("local-first Claude Code")
+
+Source: product + GTM expert review (2026-05-03).
+
+Problem: README + landing target 5 ICPs at once (coding agent users, personal-AI seekers, Pi-replacement, LangChain-replacement, homelab). Dunford alternative table is wide, not deep. Category label "local-first agent runtime" is descriptive, not POV — fails Lochhead's named-enemy test.
+
+Action:
+- Pick primary alternative: Claude Code with local Ollama. Strongest moat, sharpest wedge, HN-shaped audience with API-bill pain.
+- Rewrite README hero + landing H1 around one promise: "Approve every step before your AI touches your filesystem" (or similar — concrete > abstract).
+- Demote personal-AI / Pi-replacement / homelab framings to secondary docs.
+- Drop the Pi (Inflection) comparison row — wrong audience, dilutes credibility.
+- Lead with the differentiator triad: plan-review + capability-gated permissions + hash-chained audit. "Local-first" is enabler, not headline.
+
+Acceptance: README hero, landing H1, and `docs/comparison.md` (new) all anchor on the coding-agent wedge. One sentence positioning passes the Dunford test.
+
+---
+
+## Make plan-review real: multi-step planning + LLM integration + dynamic tool routing
+
+Source: product expert review (2026-05-03). P0 disguised as P1.
+
+Problem: spec admits planSteps emits ONE hardcoded step and "the agent does not currently call an LLM." Plan-review is the headline differentiator; without real plans it's theater. Everything else (connectors, plugins, marketplace) is scaffolding around a missing core.
+
+Action:
+- Wire LLM provider profiles into runtime planning so the planner generates real, multi-step plans.
+- Implement dynamic tool routing — planner picks tools based on capability + assistant rules, not a fixed sequence.
+- Ship streaming token UX in chat (single biggest perceived-quality gap vs. Claude Code/Cursor; README markets "warm chat interface" but no streaming).
+- Bundle as v0.2 release "Plans That Plan."
+
+Acceptance: a fresh user can run "review my repo for security issues" and see a 3+ step plan generated by an LLM, approve it, and watch it execute step-by-step with streaming tokens.
+
+---
+
+## Activation under 2 minutes: OpenAI/Anthropic fast-path + auto-created Code Reviewer
+
+Source: product + GTM expert review (2026-05-03).
+
+Problem: today quickstart requires Homebrew + Ollama install + ~10GB model pull + Tauri install + 5-step wizard. Time-to-first-run is 15-30 min on cold machines. Onboarding wizard is post-V1 in spec — wrong order; onboarding IS the activation funnel.
+
+Action:
+- Promote first-run wizard to next-ship.
+- Add "fastest path" option: paste OpenAI/Anthropic key → 60 seconds to first run. Local-Ollama purity becomes the V2 motivation, not the V1 blocker.
+- Auto-create a "Code Reviewer" assistant pointed at the user's current repo so the aha moment is an approval card on a real `filesystem.write` step within 2 min.
+- Pre-detect Ollama; bundle a small default-model fetch flow inside the wizard for users who choose the local path.
+- Replace static screenshot in README with `docs/media/hero.webm` or asciinema cast (≤30s) showing plan → approve → done.
+
+Acceptance: median time-to-first-successful-agent-run for a new user with no Ollama installed is under 2 minutes.
+
+---
+
+## Unified approval surface with plain-English capability copy
+
+Source: UX expert review (2026-05-03). P0 — moment of trust.
+
+Problems found in `app/src/components/approval-panel.tsx` + `app/src/lib/approval-copy.ts`:
+- Same approval renders in BOTH Approvals tab and chat view with different copy + colors (yellow vs amber).
+- Fallback copy "Approve capability X. Ask a developer what this means" insults non-devs and admits failure.
+- Destructive approval auto-arms after 2s with no countdown / progress feedback.
+- "Remember this choice for 24 hours" is buried below the action buttons; users approve before noticing.
+- Yellow-on-yellow card likely fails WCAG 1.4.3 (audit with APCA).
+- Pending approval not announced as `role="alert"` to screen readers.
+
+Action:
+- Pick one canonical surface (chat-inline OR Approvals tab) or share a single component with consistent visual language.
+- Map every known capability to plain-English copy. Never ship the developer-as-asker fallback.
+- Surface "remember this choice" + scope (this path? this command?) ABOVE the primary action.
+- Show an explicit countdown ("Approve in 2…1") for auto-arm, OR require type-to-confirm for irreversible actions (Norman's forcing function).
+- Wrap pending approvals in `role="alert"` with `aria-live="assertive"`.
+- Audit color contrast and fix.
+
+Acceptance: a non-developer can read any approval card and know exactly what will happen if they click Approve.
+
+---
+
+## Onboarding recovery defaults: replace skip/continue-anyway escape hatches
+
+Source: UX expert review (2026-05-03). First-run dropoff site.
+
+Problems in `app/src/components/onboarding/`:
+- 5-step linear wizard with no visible progress map / step titles.
+- Step 4 "Continue anyway" on failed verification ships user into a broken state silently.
+- Skip dumps user into empty Chats with no recoverable starter.
+
+Action:
+- Replace progress dots with a labeled stepper (titles visible).
+- On verification failure, default action becomes Reconfigure; "Continue anyway" demoted to text link.
+- Skip routes into a working starter chat with example prompts (3 starter chips, Jakob's Law / ChatGPT pattern), not an empty `<select>`.
+- Tie to the auto-created Code Reviewer assistant (see related feature) so Skip still produces aha-able state.
+
+Acceptance: zero paths through onboarding result in a non-functional first-run state.
+
+---
+
+## Hero video accessibility + comprehension overhaul
+
+Source: frontend + UX expert review (2026-05-03). P0 a11y + landing comprehension.
+
+Problems in `docs/index.html` + `docs/site.css`:
+- `autoplay loop muted` hero video has no pause control — WCAG 2.2 SC 2.2.2 violation.
+- No `prefers-reduced-motion` guard on the autoplay or on `html { scroll-behavior: smooth }` (WCAG 2.3.3).
+- Missing `width`/`height`/`decoding="async"` on hero video and step images → CLS regression on first paint.
+- Caption claims "this is the actual product" but the loop offers no time to read; viewers can't tell where the flow starts. No chapter cues.
+- webm (352K) is LARGER than mp4 (296K) — wrong codec/encoder. Re-encode webm with VP9/AV1 or drop the source.
+- No fallback CTA for users who block autoplay (e.g., "Watch 90s demo" → YouTube embed for HN comment portability + SEO).
+- Step images (02-plan-review.png etc.) missing `loading="lazy"` and dimensions.
+- Sticky nav uses `backdrop-filter: blur` without `-webkit-backdrop-filter` — Safari paints behind on scroll.
+
+Action: gate autoplay on `prefers-reduced-motion: no-preference`, add visible play/pause control, add chapter markers or labeled phase frames (Plan / Approve / Run), set explicit dimensions, re-encode webm, add YouTube fallback link, fix Safari prefix.
+
+Acceptance: hero passes axe-core + Lighthouse a11y audits; CLS < 0.05; a 7-second viewer recognizes the Plan→Approve→Run flow.
+
+---
+
+## Chat input UX: textarea, IME composition, multiline send semantics, scroll race
+
+Source: frontend + UX expert review (2026-05-03).
+
+Problems in `app/src/components/chat-interface.tsx`:
+- Plain `<Input>` (single-line); Enter sends but Shift+Enter cannot insert a newline.
+- Enter handler does not check `e.nativeEvent.isComposing` — IME users (Japanese, Chinese, Korean) send mid-word every time they confirm a candidate.
+- "New Chat" button at lines 485-490 only nulls `selectedChat`; `newMessage` and `selectedAssistant` persist and bleed into a different chat context.
+- `setTimeout(scrollIntoView, 100)` at lines 282-285 races with chatData updates → multiple scrolls queue. Use `requestAnimationFrame` and clear prior timeout.
+- Empty-state forces a `<select>` of assistants; no example starter prompts.
+- Native `<select>` styled but lacks ring/focus parity with shadcn primitives.
+
+Action:
+- Replace Input with multiline textarea; Cmd/Ctrl+Enter to send, Shift+Enter for newline, plain Enter inserts newline OR sends per user setting.
+- Guard composition: `if (e.nativeEvent.isComposing || e.shiftKey) return;`
+- New Chat resets newMessage + selectedAssistant.
+- Replace setTimeout with rAF + cleanup.
+- Add 3 starter prompt chips in the empty state.
+- Use the existing shadcn Select component everywhere a styled select appears.
+- Optional: split the 800-line file into ChatList / ChatDetail / ChatComposer.
+
+Acceptance: IME users can type without premature send; no text bleed across chats; no double-scroll; first-time empty state offers a one-click prompt.
+
+---
+
+## Auth + endpoint cache invalidation on 401, daemon restart resilience
+
+Source: frontend expert review (2026-05-03).
+
+Problems in `app/src/lib/api.ts`:
+- `tokenPromise` and `apiBasePromise` (lines 65-104) cache forever. If `nomid` restarts with a fresh token, the renderer is stuck with the stale one until the user reloads the window.
+- `installFromFile` (lines 512-537) duplicates the auth/error handling of `fetchApi` — drift risk between the two paths.
+
+Additional related findings:
+- `App.tsx:34-50` `ConnectionStatus` polls `/health` every 5s outside React Query — duplicates work and bypasses cache. Convert to `useQuery({ queryKey: ['health'], refetchInterval: 5000 })`.
+- `event-provider.tsx:81-126` invalidations fire on every event including bursts of `step.*` — batch with `queueMicrotask` or 50ms throttle to prevent React Query refetch storms during a 4-step run.
+- `App.tsx:259-283` useEffect deps are React Query data objects with new identity every refetch — tray invokes fire 2× per 30s tick. Memoize on primitive `pendingCount` and `hasActiveRun`.
+
+Action:
+- Reset `tokenPromise` + `apiBasePromise` on 401, retry once with the fresh token before surfacing the error.
+- Refactor `fetchApi` and `installFromFile` to share a single `rawRequest` so retry/error handling is unified.
+- Convert health polling to React Query.
+- Throttle event-driven invalidations.
+- Memoize tray-relevant primitives.
+
+Acceptance: a `nomid` restart does not require a window reload; SSE event bursts do not cause refetch storms.
+
+---
+
+## Comparison page + HN Show launch motion + community kindling
+
+Source: GTM expert review (2026-05-03). Pre-launch readiness.
+
+Problem: no comparison page, no HN Show prep, missing community files, no examples beyond seed.yaml + 2 WASM stubs. First 100 users will not arrive without these.
+
+Action — comparison + launch:
+- Ship `docs/comparison.md` — feature matrix vs Goose, Cline, OpenInterpreter, Claude Code, AutoGPT. Linked from README + landing.
+- HN Show post draft: title pattern "Show HN: Nomi – local-first agent that asks before touching your filesystem"; first-comment 90s loom; canned responses for "how is this different from X".
+- Cut the 90s loom: "review my repo for security issues" with plan-review front-and-center.
+
+Action — community files:
+- Add `CONTRIBUTING.md`, top-level `CODE_OF_CONDUCT.md`, `.github/ISSUE_TEMPLATE/*`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/FUNDING.yml`. Enable Discussions.
+
+Action — examples flywheel:
+- Add 3-5 named recipes to `examples/`: Code Reviewer, Inbox Triage, Homelab Watchdog, Obsidian Daily Note, Browser Research. Each = README + seed.yaml + screenshot.
+- Ship `docs/plugins.md` + `examples/wasm-plugin-template/` even before the marketplace exists.
+
+Action — distribution:
+- Ship winget manifest, AUR PKGBUILD, Nix flake (`nix run github:felixgeelhaar/nomi`). High leverage on r/LocalLLaMA + r/selfhosted + NixOS audiences.
+
+Action — landing trust signals:
+- GH stars badge above the fold, downloads/contributors badges, "Watch 90s demo" CTA linking to YouTube for HN-comment portability.
+
+Sequence: community files + comparison page + examples ship in week 1; winget/AUR/Nix in week 2; HN Show post in week 3; r/LocalLLaMA + r/selfhosted + Lobsters posts in week 4 (each tailored to a recipe).
+
+---
+
+## Promote cognitive-stack libraries (statekit, mnemos, scout, roady) as the OSS moat
+
+Source: product expert review (2026-05-03). Underplayed defensibility.
+
+Insight: `statekit` + `mnemos` + `scout` + `roady` released as independent Go libraries are the durable advantage. Wardley framing — components moving toward commodity, the platform that integrates them wins. Christensen — modular components compete; the integrator wins. Today the README treats them as "powered by" trivia (6 paragraphs of portfolio-style prose) rather than as the strategic story.
+
+Action:
+- Compress current "Powered by" section to 3 lines; move full stack to `docs/architecture.md`.
+- Reframe the libraries as a first-class narrative in README and on the landing page: "Nomi is built from composable cognitive-stack libraries you can use independently."
+- Each library gets a one-paragraph value prop linking to its own README.
+- Recruit at the library layer — that's where the next 100 OSS contributors come from, and where future enterprise revenue (libraries-as-supported-product, Sentry/PostHog model) lives.
+- Plant monetization seeds without compromising trust: optional paid Nomi Sync (E2E-encrypted), waitlist signup on landing; signed-plugin marketplace with revenue share for authors.
+
+Acceptance: a contributor reading the README in 60 seconds can name the four libraries and identify which one matches their interest.
+
+---
+
+## Scope discipline: cut overhang, stop polling, prune e2e journeys to wedge ICP
+
+Source: product expert review (2026-05-03). Cutler — measure activation, not journey count.
+
+Problems:
+- README markets Telegram + Email + Slack + Discord + Gmail + GitHub + Calendar + Obsidian + Browser + TTS/STT but only Telegram has shipped — credibility gap.
+- v0.2 candidates (cross-device sync, vision/LLaVA, TUI, NomiHub WASM marketplace, menu bar, plugin signing) are six features each 2-4 weeks; shipping all = shipping none well.
+- 22 e2e journeys is over-investment for a pre-PMF product.
+- Polling at 2-3s in 5 components is a perceived-latency tax; event-driven invalidation is currently spec'd as a feature, not a fix.
+
+Action:
+- Trim README to shipped connectors only; move aspirations to a clearly-labeled "Roadmap" section.
+- Pick ONE v0.2 bet — recommend TUI for SSH/homelab users (matches the wedge ICP if homelab framing is kept) OR Email/Calendar if personal-AI angle wins. Cut the rest from v0.2.
+- Drop e2e journeys to 5 covering the wedge ICP; reinvest reclaimed time in wedge UX.
+- Promote event-driven cache invalidation from "feature" to "critical fix" — it is table-stakes UX.
+- Pick the next connector based on ICP: Email + Calendar prove "personal AI on your machine"; Slack/Discord are team tools and wrong for the V1 ICP.
+
+Acceptance: README claims match shipped reality; v0.2 has one named flagship feature, not six; polling-driven UI lag is gone.
+
+---
+
+## Final LLM conclusion must render as chat bubble, not be hidden in ThinkingBlock
+
+Source: user-reported recurring bug (2026-05-03). P0.
+
+Problem: `chat-interface.tsx:451-457` `getResponseText()` returns the LAST completed step's output (`completedSteps[completedSteps.length - 1].output`). In any multi-step plan where the planner ends on a non-LLM tool (e.g. `filesystem.write`, `command.exec`), the chat bubble shows that tool's terse output ("wrote 4123 bytes to README.md") instead of the LLM's synthesizing conclusion. The actual conclusion was produced by an earlier `llm.chat` step and is reachable only by expanding the ThinkingBlock — exactly the behavior the user has flagged twice now.
+
+Action:
+- Modify `getResponseText` to: build a map of step_definition_id → expected_tool from `chatData.plan.steps`; filter `chatData.steps` to those with status="done", non-empty output, and expected_tool === "llm.chat"; return the latest one (max updated_at).
+- Fallback: if no llm.chat step found, return last completed step's output (preserves single-step plan behavior).
+- ThinkingBlock should never display the conclusion text. Verify by reading the component — today it only renders titles/descriptions, but add a regression test that mounts a 3-step plan ending in filesystem.write and asserts the chat bubble contains the llm.chat output.
+
+Acceptance: in a 3-step plan (llm.chat → filesystem.write → command.exec), the chat bubble below the ThinkingBlock contains the llm.chat output verbatim. Add Vitest test covering the multi-step shape.
+
+---

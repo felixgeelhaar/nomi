@@ -135,22 +135,27 @@ interface ApprovalCardProps {
   agentName?: string;
 }
 
+// IRREVERSIBLE_CONFIRM_TOKEN is the literal string the user must type into
+// the confirmation input before the Approve button unlocks for actions
+// flagged as irreversible (rm -rf, mkfs, dd if=, etc.). A forcing function
+// per Norman: irreversible operations must require explicit positive
+// confirmation, not a passive 2-second timeout that a fast clicker can
+// race past.
+const IRREVERSIBLE_CONFIRM_TOKEN = "confirm";
+
 export function ApprovalCard({ approval, onResolve, processing, agentName }: ApprovalCardProps) {
   const [showRaw, setShowRaw] = useState(false);
-  const [unlockApprove, setUnlockApprove] = useState(true);
+  const [confirmText, setConfirmText] = useState("");
   const [rememberChoice, setRememberChoice] = useState(false);
   const copy = approvalCopy(approval.capability, approval.context);
   const dangerous = copy.dangerSignal === "irreversible";
+  const unlockApprove = !dangerous || confirmText.trim().toLowerCase() === IRREVERSIBLE_CONFIRM_TOKEN;
 
   useEffect(() => {
-    if (!dangerous || approval.status !== "pending") {
-      setUnlockApprove(true);
-      return;
+    if (approval.status !== "pending") {
+      setConfirmText("");
     }
-    setUnlockApprove(false);
-    const t = setTimeout(() => setUnlockApprove(true), 2000);
-    return () => clearTimeout(t);
-  }, [dangerous, approval.status]);
+  }, [approval.status]);
 
   return (
     <div className={`rounded-lg p-4 my-2 ${dangerous ? "bg-red-50 border border-red-300" : "bg-amber-50 border border-amber-200"}`}>
@@ -177,6 +182,29 @@ export function ApprovalCard({ approval, onResolve, processing, agentName }: App
               {JSON.stringify(approval.context, null, 2)}
             </div>
           )}
+          {approval.status === "pending" && dangerous && (
+            <div className="space-y-1">
+              <label
+                htmlFor={`confirm-${approval.id}`}
+                className="block text-xs font-medium text-red-900"
+              >
+                Type <code className="bg-red-100 px-1 rounded">{IRREVERSIBLE_CONFIRM_TOKEN}</code> to enable Approve
+              </label>
+              <input
+                id={`confirm-${approval.id}`}
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                autoComplete="off"
+                aria-describedby={`confirm-${approval.id}-help`}
+                className="w-full rounded-md border border-red-300 bg-white px-2 py-1 text-sm text-red-900 placeholder:text-red-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-600"
+                placeholder={IRREVERSIBLE_CONFIRM_TOKEN}
+              />
+              <p id={`confirm-${approval.id}-help`} className="text-[11px] text-red-800/80">
+                This action cannot be undone.
+              </p>
+            </div>
+          )}
           {approval.status === "pending" && (
             <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
               <input
@@ -193,7 +221,7 @@ export function ApprovalCard({ approval, onResolve, processing, agentName }: App
               disabled={processing || !unlockApprove}
               className={`px-3 py-1.5 text-white text-sm rounded-md disabled:opacity-50 transition-colors ${dangerous ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}
             >
-              {processing ? "Approving..." : !unlockApprove ? "Wait..." : "Approve"}
+              {processing ? "Approving..." : "Approve"}
             </button>
             <button
               onClick={() => onResolve(false, rememberChoice)}

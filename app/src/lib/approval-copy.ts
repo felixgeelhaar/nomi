@@ -59,6 +59,26 @@ export function approvalCopy(
     return { summary: "Read files in your workspace" };
   }
 
+  if (capability === "filesystem.list") {
+    const path = asString(input.path || ctx.path);
+    if (path) {
+      return { summary: `List the contents of ${path}` };
+    }
+    return { summary: "List files in your workspace" };
+  }
+
+  if (capability === "filesystem.context") {
+    const path = asString(input.path || ctx.path);
+    if (path) {
+      return { summary: `Attach the contents of ${path} as context` };
+    }
+    return { summary: "Attach folder contents as context for the run" };
+  }
+
+  if (capability === "llm.chat") {
+    return { summary: "Send a prompt to the configured language model" };
+  }
+
   if (capability === "command.exec") {
     const cmd = asString(input.command || ctx.command || ctx.input);
     if (cmd) {
@@ -81,10 +101,28 @@ export function approvalCopy(
     return { summary: "Send an outgoing network request", dangerSignal: "network" };
   }
 
+  // Unknown capability fallback. We never tell the user to "ask a developer"
+  // — that signals the product has failed them. Instead, derive a plain
+  // sentence from the capability string itself ("network.outgoing" →
+  // "perform a network.outgoing action"). The raw-details disclosure on
+  // the approval card surfaces the structured context for power users.
   const constrained = constraints && Object.keys(constraints).length > 0;
+  const humanized = humanizeCapability(capability);
   return {
     summary: constrained
-      ? `Approve capability ${capability} with constraints. Ask a developer what this means before approving.`
-      : `Approve capability ${capability}. Ask a developer what this means before approving.`,
+      ? `Allow this assistant to ${humanized} with the listed constraints.`
+      : `Allow this assistant to ${humanized}.`,
   };
+}
+
+function humanizeCapability(capability: string): string {
+  // "filesystem.write" → "perform a filesystem write"
+  // Falls back to the raw capability string when it doesn't fit the
+  // dotted-namespace convention so we never invent meaning we don't have.
+  const parts = capability.split(".");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return `perform the "${capability}" capability`;
+  }
+  const [namespace, action] = parts;
+  return `${action} via ${namespace}`;
 }

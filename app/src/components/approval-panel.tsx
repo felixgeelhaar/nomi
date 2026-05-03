@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { approvalsApi } from "@/lib/api";
 import { approvalCopy } from "@/lib/approval-copy";
 import { errorMessage } from "@/lib/utils";
 import { queryKeys } from "@/lib/query-keys";
+
+const IRREVERSIBLE_CONFIRM_TOKEN = "confirm";
 
 export function ApprovalPanel() {
   const qc = useQueryClient();
@@ -35,28 +37,12 @@ export function ApprovalPanel() {
 
   const approvals = data?.approvals ?? [];
   const pendingApprovals = approvals.filter((a) => a.status === "pending");
-  const [armedApprovals, setArmedApprovals] = useState<Record<string, boolean>>({});
+  const [confirmText, setConfirmText] = useState<Record<string, string>>({});
   const [rememberChoice, setRememberChoice] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    const timers: number[] = [];
-    for (const approval of pendingApprovals) {
-      const copy = approvalCopy(approval.capability, approval.context);
-      if (copy.dangerSignal === "irreversible" && armedApprovals[approval.id] === undefined) {
-        setArmedApprovals((prev) => ({ ...prev, [approval.id]: false }));
-        const timer = window.setTimeout(() => {
-          setArmedApprovals((prev) => ({ ...prev, [approval.id]: true }));
-        }, 2000);
-        timers.push(timer);
-      }
-      if (copy.dangerSignal !== "irreversible" && armedApprovals[approval.id] === undefined) {
-        setArmedApprovals((prev) => ({ ...prev, [approval.id]: true }));
-      }
-    }
-    return () => {
-      for (const timer of timers) window.clearTimeout(timer);
-    };
-  }, [pendingApprovals, armedApprovals]);
+  const isArmed = (approvalId: string, dangerous: boolean): boolean =>
+    !dangerous ||
+    (confirmText[approvalId] ?? "").trim().toLowerCase() === IRREVERSIBLE_CONFIRM_TOKEN;
 
   const resolveMutation = useMutation({
     mutationFn: ({ id, approved, remember }: { id: string; approved: boolean; remember: boolean }) =>
@@ -134,7 +120,7 @@ export function ApprovalPanel() {
             (() => {
               const copy = approvalCopy(approval.capability, approval.context);
               const dangerous = copy.dangerSignal === "irreversible";
-              const armed = armedApprovals[approval.id] ?? !dangerous;
+              const armed = isArmed(approval.id, dangerous);
               return (
             <Card
               key={approval.id}
@@ -181,6 +167,30 @@ export function ApprovalPanel() {
 
                 {approval.status === "pending" && (
                   <div className="space-y-2">
+                    {dangerous && (
+                      <div className="space-y-1">
+                        <label
+                          htmlFor={`panel-confirm-${approval.id}`}
+                          className="block text-xs font-medium text-red-700"
+                        >
+                          Type <code className="bg-red-100 px-1 rounded">{IRREVERSIBLE_CONFIRM_TOKEN}</code> to enable Approve
+                        </label>
+                        <input
+                          id={`panel-confirm-${approval.id}`}
+                          type="text"
+                          value={confirmText[approval.id] || ""}
+                          onChange={(e) =>
+                            setConfirmText((prev) => ({ ...prev, [approval.id]: e.target.value }))
+                          }
+                          autoComplete="off"
+                          placeholder={IRREVERSIBLE_CONFIRM_TOKEN}
+                          className="w-full rounded-md border border-red-300 bg-white px-2 py-1 text-sm text-red-900 placeholder:text-red-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-600"
+                        />
+                        <p className="text-[11px] text-red-700/80">
+                          This action cannot be undone.
+                        </p>
+                      </div>
+                    )}
                     <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
@@ -219,7 +229,7 @@ export function ApprovalPanel() {
                         })
                       }
                     >
-                      {processingId === approval.id ? "Processing..." : !armed ? "Wait..." : "Approve"}
+                      {processingId === approval.id ? "Processing..." : "Approve"}
                     </Button>
                     </div>
                   </div>

@@ -66,13 +66,19 @@
   </section>
 
   <section class="screenshot">
-    <video class="hero-video" autoplay loop muted playsinline preload="metadata"
-           poster="media/hero-poster.jpg"
-           aria-label="Demo: typing a goal, reviewing the agent's plan, approving it, and watching the run execute">
-      <source src="media/hero.webm" type="video/webm" />
-      <source src="media/hero.mp4" type="video/mp4" />
-      <img src="media/hero-poster.jpg" alt="Plan review screen with approve/edit controls" />
-    </video>
+    <div class="hero-video-wrap">
+      <video class="hero-video" id="hero-video" autoplay loop muted playsinline preload="metadata"
+             width="1280" height="720"
+             poster="media/hero-poster.jpg"
+             aria-label="Demo: typing a goal, reviewing the agent's plan, approving it, and watching the run execute">
+        <source src="media/hero.webm" type="video/webm" />
+        <source src="media/hero.mp4" type="video/mp4" />
+        <img src="media/hero-poster.jpg" alt="Plan review screen with approve/edit controls" width="1280" height="720" />
+      </video>
+      <button class="video-toggle" type="button" aria-controls="hero-video" aria-pressed="true" aria-label="Pause demo video">
+        <span class="video-toggle-icon" aria-hidden="true">❚❚</span>
+      </button>
+    </div>
     <p class="caption">Type a goal. Review the plan. Approve. Run. <strong>This is the actual product, recorded against a local Ollama.</strong></p>
   </section>
 
@@ -94,19 +100,19 @@
         <span class="num">1</span>
         <h3>Plan</h3>
         <p>The agent decomposes your goal into discrete steps. Each step is a tool call with a capability tag — <code>filesystem.write</code>, <code>command.exec</code>, <code>llm.chat</code>.</p>
-        <img src="images/02-plan-review.png" alt="Plan review with approve/edit/cancel" />
+        <img src="images/02-plan-review.png" alt="Plan review with approve/edit/cancel" loading="lazy" decoding="async" width="1280" height="800" />
       </article>
       <article class="step">
         <span class="num">2</span>
         <h3>Approve</h3>
         <p>Anything beyond the assistant's permission ceiling pauses the run. Approve once, approve always, or deny — your call, on your terms.</p>
-        <img src="images/09-approvals.png" alt="Approval queue with pending tool calls" />
+        <img src="images/09-approvals.png" alt="Approval queue with pending tool calls" loading="lazy" decoding="async" width="1280" height="800" />
       </article>
       <article class="step">
         <span class="num">3</span>
         <h3>Run</h3>
         <p>Tools execute against your files, your shell, your APIs. Every event is persisted and streamed live so you can audit what happened or replay it.</p>
-        <img src="images/05-events.png" alt="Live event stream of run execution" />
+        <img src="images/05-events.png" alt="Live event stream of run execution" loading="lazy" decoding="async" width="1280" height="800" />
       </article>
     </div>
   </section>

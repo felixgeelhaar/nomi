@@ -79,6 +79,15 @@ function getApiBase(): Promise<string> {
   return apiBasePromise;
 }
 
+// resetAuthState clears cached token + endpoint promises so the next
+// request resolves them fresh. Called on 401 responses so a daemon
+// restart (which rotates the token file) doesn't brick the renderer
+// until the user reloads the window.
+function resetAuthState(): void {
+  tokenPromise = null;
+  apiBasePromise = null;
+}
+
 function getAuthToken(): Promise<string> {
   if (!tokenPromise) {
     // invoke() may throw SYNCHRONOUSLY in non-Tauri contexts (vite
@@ -121,34 +130,44 @@ export class ApiError extends Error {
 }
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  let token: string;
-  let base: string;
-  try {
-    [token, base] = await Promise.all([getAuthToken(), getApiBase()]);
-  } catch (err) {
-    throw new ApiError(
-      0,
-      `Failed to load API auth token: ${err instanceof Error ? err.message : String(err)}`
-    );
-  }
+  const send = async (): Promise<Response> => {
+    let token: string;
+    let base: string;
+    try {
+      [token, base] = await Promise.all([getAuthToken(), getApiBase()]);
+    } catch (err) {
+      throw new ApiError(
+        0,
+        `Failed to load API auth token: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
 
-  const headers = new Headers(options?.headers);
-  if (!headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  headers.set("Authorization", `Bearer ${token}`);
+    const headers = new Headers(options?.headers);
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    headers.set("Authorization", `Bearer ${token}`);
 
-  let response: Response;
-  try {
-    response = await fetch(`${base}${path}`, { ...options, headers });
-  } catch (err) {
-    // Only network-level failures (fetch rejected) reach this branch. Surface
-    // the original message so the UI can distinguish "daemon not running" from
-    // other failure modes.
-    throw new ApiError(
-      0,
-      `Network error reaching ${path}: ${err instanceof Error ? err.message : String(err)}`
-    );
+    try {
+      return await fetch(`${base}${path}`, { ...options, headers });
+    } catch (err) {
+      // Only network-level failures (fetch rejected) reach this branch. Surface
+      // the original message so the UI can distinguish "daemon not running" from
+      // other failure modes.
+      throw new ApiError(
+        0,
+        `Network error reaching ${path}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  };
+
+  let response = await send();
+  if (response.status === 401) {
+    // The daemon may have restarted and rotated its token. Drop the cached
+    // promises and retry once with fresh credentials before surfacing the
+    // error to callers.
+    resetAuthState();
+    response = await send();
   }
 
   if (!response.ok) {
@@ -194,27 +213,34 @@ async function fetchApiParsed<S extends import("zod").ZodTypeAny>(
 }
 
 async function fetchApiText(path: string, options?: RequestInit): Promise<string> {
-  let token: string;
-  let base: string;
-  try {
-    [token, base] = await Promise.all([getAuthToken(), getApiBase()]);
-  } catch (err) {
-    throw new ApiError(
-      0,
-      `Failed to load API auth token: ${err instanceof Error ? err.message : String(err)}`
-    );
-  }
-  const headers = new Headers(options?.headers);
-  headers.set("Authorization", `Bearer ${token}`);
+  const send = async (): Promise<Response> => {
+    let token: string;
+    let base: string;
+    try {
+      [token, base] = await Promise.all([getAuthToken(), getApiBase()]);
+    } catch (err) {
+      throw new ApiError(
+        0,
+        `Failed to load API auth token: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+    const headers = new Headers(options?.headers);
+    headers.set("Authorization", `Bearer ${token}`);
 
-  let response: Response;
-  try {
-    response = await fetch(`${base}${path}`, { ...options, headers });
-  } catch (err) {
-    throw new ApiError(
-      0,
-      `Network error reaching ${path}: ${err instanceof Error ? err.message : String(err)}`
-    );
+    try {
+      return await fetch(`${base}${path}`, { ...options, headers });
+    } catch (err) {
+      throw new ApiError(
+        0,
+        `Network error reaching ${path}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  };
+
+  let response = await send();
+  if (response.status === 401) {
+    resetAuthState();
+    response = await send();
   }
   if (!response.ok) {
     throw new ApiError(response.status, response.statusText || `HTTP ${response.status}`);
@@ -515,14 +541,21 @@ export const pluginsApi = {
     // application/json which would corrupt the upload, so this path
     // bypasses fetchApi and uses a raw fetch with manually managed
     // headers.
-    const [token, base] = await Promise.all([getAuthToken(), getApiBase()]);
     const form = new FormData();
     form.append("bundle", file);
-    const resp = await fetch(`${base}/plugins/install`, {
-      method: "POST",
-      body: form,
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const send = async (): Promise<Response> => {
+      const [token, base] = await Promise.all([getAuthToken(), getApiBase()]);
+      return fetch(`${base}/plugins/install`, {
+        method: "POST",
+        body: form,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    };
+    let resp = await send();
+    if (resp.status === 401) {
+      resetAuthState();
+      resp = await send();
+    }
     if (!resp.ok) {
       let message = `HTTP ${resp.status}`;
       try {

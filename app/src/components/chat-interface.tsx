@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -12,6 +11,7 @@ import {
 import { runsApi, assistantsApi, approvalsApi, pluginsApi } from "@/lib/api";
 import type { Run, Assistant, Plugin } from "@/types/api";
 import { ThinkingBlock, ApprovalCard, PlanReviewCard } from "@/components/chat-message";
+import { pickResponseText } from "@/lib/response-text";
 import { OutcomeConnectorPicker } from "@/components/onboarding/outcome-connectors";
 import { queryKeys } from "@/lib/query-keys";
 import { errorMessage } from "@/lib/utils";
@@ -181,6 +181,7 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevStepCountRef = useRef(0);
   const prevStatusRef = useRef<string>("");
+  const scrollFrameRef = useRef<number | null>(null);
 
   // --- server state via React Query ---
 
@@ -279,14 +280,26 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
           prevStatusRef.current === "created"));
 
     if (shouldScroll) {
-      setTimeout(() => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
+      scrollFrameRef.current = requestAnimationFrame(() => {
+        scrollFrameRef.current = null;
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
+      });
     }
 
     prevStepCountRef.current = currentStepCount;
     prevStatusRef.current = currentStatus;
   }, [chatData]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
+    };
+  }, []);
 
   // --- mutations ---
 
@@ -448,13 +461,7 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
   // Get pending approvals for current chat
   const pendingApprovals = chatApprovals.filter((a) => a.status === "pending");
 
-  // Get final response text from completed steps
-  const getResponseText = () => {
-    if (!chatData?.steps) return "";
-    const completedSteps = chatData.steps.filter((s) => s.status === "done" && s.output);
-    if (completedSteps.length === 0) return "";
-    return completedSteps[completedSteps.length - 1].output || "";
-  };
+  const getResponseText = () => pickResponseText(chatData?.steps, chatData?.plan);
 
   const loading = runsQuery.isLoading || assistantsQuery.isLoading;
   const sending = createRun.isPending;
@@ -484,6 +491,7 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
             className="w-full"
             onClick={() => {
               setSelectedChat(null);
+              setNewMessage("");
             }}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -553,15 +561,39 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
                     ))}
                   </select>
 
-                  <div className="flex gap-2">
-                    <Input
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "Review the README in my workspace and suggest improvements",
+                      "List the files in my current workspace and summarize their roles",
+                      "Draft a release note for the changes since the last commit",
+                    ].map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => setNewMessage(prompt)}
+                        className="text-xs text-left rounded-full border border-border bg-background hover:bg-muted/40 px-3 py-1.5 transition-colors"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 items-end">
+                    <textarea
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder={`Ask ${
                         assistants.find((a) => a.id === selectedAssistant)?.name || "Nomi"
-                      } anything...`}
-                      onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                      className="flex-1"
+                      } anything... (Shift+Enter for newline)`}
+                      onKeyDown={(e) => {
+                        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                      rows={2}
+                      className="flex-1 min-h-[2.25rem] max-h-40 resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
                     <Button onClick={handleSend} disabled={sending || !newMessage.trim()}>
                       {sending ? (
@@ -765,18 +797,27 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
                 review so the user can't accidentally discard the plan by
                 typing Enter — they must approve or cancel first. */}
             <div className="border-t p-4 flex-shrink-0">
-              <div className="flex gap-2 max-w-4xl mx-auto">
-                <Input
+              <div className="flex gap-2 max-w-4xl mx-auto items-end">
+                <textarea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder={
                     chatData?.run.status === "plan_review"
                       ? "Waiting on your review"
-                      : "Send a message..."
+                      : "Send a message... (Shift+Enter for newline)"
                   }
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                  onKeyDown={(e) => {
+                    // Skip when an IME composition is in progress so users
+                    // typing CJK candidates don't send the partial input.
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
                   disabled={chatData?.run.status === "plan_review"}
-                  className="flex-1"
+                  rows={1}
+                  className="flex-1 min-h-[2.25rem] max-h-40 resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <Button
                   onClick={handleSend}

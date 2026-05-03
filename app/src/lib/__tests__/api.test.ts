@@ -124,6 +124,58 @@ describe("fetchApi", () => {
     await expect(healthApi.check()).rejects.toBeInstanceOf(ApiError);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("retries once with fresh credentials after a 401 response", async () => {
+    // First request returns 401 (stale token after daemon restart). The
+    // second request, made after resetAuthState(), succeeds. The renderer
+    // should never see the 401.
+    let call = 0;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      call++;
+      if (call === 1) {
+        return Promise.resolve(new Response("", { status: 401 }));
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ status: "ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+
+    // Rotate the token between calls so the retry picks up the fresh value.
+    let tokenCall = 0;
+    mockedInvoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "get_auth_token") {
+        tokenCall++;
+        return tokenCall === 1 ? "stale-token" : "fresh-token";
+      }
+      if (cmd === "get_api_endpoint") return "http://127.0.0.1:8080";
+      return "";
+    });
+
+    const { healthApi } = await freshApi();
+    await expect(healthApi.check()).resolves.toEqual({ status: "ok" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const second = fetchSpy.mock.calls[1];
+    const headers = new Headers(second?.[1]?.headers);
+    expect(headers.get("Authorization")).toBe("Bearer fresh-token");
+  });
+
+  it("surfaces 401 to the caller when the retry also fails", async () => {
+    // Both attempts fail with 401 (e.g. the new token is also invalid).
+    // The caller must receive ApiError(401), not an infinite retry loop.
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => Promise.resolve(new Response("", { status: 401 })));
+
+    const { healthApi, ApiError } = await freshApi();
+    const err = await healthApi.check().catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(401);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("module-level exports", () => {

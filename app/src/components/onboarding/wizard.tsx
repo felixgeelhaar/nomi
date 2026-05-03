@@ -308,13 +308,46 @@ export function OnboardingWizard({
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
       <Card className="w-full max-w-4xl">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <CardTitle className="text-2xl">Welcome to Nomi</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Get set up in under a minute.</p>
             </div>
             <Badge variant="outline">Step {step} of 5</Badge>
           </div>
+          <ol
+            aria-label="Onboarding progress"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-3"
+          >
+            {([
+              "Template",
+              "Provider",
+              "Workspace",
+              "Verify",
+              "Connect",
+            ] as const).map((label, idx) => {
+              const n = idx + 1;
+              const state = step === n ? "current" : step > n ? "done" : "upcoming";
+              return (
+                <li
+                  key={label}
+                  aria-current={state === "current" ? "step" : undefined}
+                  className={
+                    state === "current"
+                      ? "font-medium text-foreground"
+                      : state === "done"
+                        ? "text-foreground/70"
+                        : "text-muted-foreground/60"
+                  }
+                >
+                  <span aria-hidden="true" className="mr-1">
+                    {state === "done" ? "✓" : n}.
+                  </span>
+                  {label}
+                </li>
+              );
+            })}
+          </ol>
         </CardHeader>
         <CardContent className="space-y-6">
           {step === 1 && (
@@ -534,11 +567,16 @@ export function OnboardingWizard({
                 )}
                 {step === 4 && verifyState === "failed" && (
                   <>
-                    <Button type="button" variant="outline" onClick={reconfigureFromStep4}>
-                      Reconfigure
-                    </Button>
-                    <Button type="button" onClick={cancelVerificationAndExit}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      onClick={cancelVerificationAndExit}
+                    >
                       Continue anyway
+                    </Button>
+                    <Button type="button" onClick={reconfigureFromStep4} autoFocus>
+                      Reconfigure
                     </Button>
                   </>
                 )}

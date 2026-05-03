@@ -21,3 +21,37 @@ document.querySelectorAll('button.copy').forEach(btn => {
     }, 1400);
   });
 });
+
+// Hero video play/pause toggle. Required for WCAG 2.2 SC 2.2.2 — any
+// auto-playing media longer than 5s must offer a pause control. Also
+// auto-pauses when the OS reports prefers-reduced-motion so vestibular
+// users are not assaulted on first paint.
+(() => {
+  const video = document.getElementById('hero-video');
+  const toggle = document.querySelector('.video-toggle');
+  if (!video || !toggle) return;
+
+  const setPressed = (playing) => {
+    toggle.setAttribute('aria-pressed', playing ? 'true' : 'false');
+    toggle.setAttribute('aria-label', playing ? 'Pause demo video' : 'Play demo video');
+  };
+
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (reduce && reduce.matches) {
+    video.pause();
+    setPressed(false);
+  } else {
+    setPressed(!video.paused);
+  }
+
+  toggle.addEventListener('click', () => {
+    if (video.paused) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  });
+
+  video.addEventListener('play', () => setPressed(true));
+  video.addEventListener('pause', () => setPressed(false));
+})();
