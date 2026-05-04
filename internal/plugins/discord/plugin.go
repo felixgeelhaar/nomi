@@ -255,6 +255,7 @@ func (p *Plugin) onMessage(ctx context.Context, connID string, s *discordgo.Sess
 		return
 	}
 	if !p.senderAllowed(connID, assistantID, m.Author.ID) {
+		p.handleFirstContact(ctx, connID, s, m.ChannelID, m.Author, p.firstContactPolicy(connID))
 		return
 	}
 
@@ -330,6 +331,51 @@ func (p *Plugin) senderAllowed(connID, assistantID, userID string) bool {
 	}
 	ok, _ := p.identities.IsAllowed(PluginID, connID, userID, assistantID)
 	return ok
+}
+
+func (p *Plugin) firstContactPolicy(connID string) domain.FirstContactPolicy {
+	if p.connections == nil {
+		return domain.FirstContactDrop
+	}
+	conn, err := p.connections.GetByID(connID)
+	if err != nil || conn == nil {
+		return domain.FirstContactDrop
+	}
+	raw, _ := conn.Config["first_contact_policy"].(string)
+	policy := domain.FirstContactPolicy(raw)
+	if !policy.IsValid() {
+		return domain.FirstContactDrop
+	}
+	return policy
+}
+
+func (p *Plugin) handleFirstContact(ctx context.Context, connID string, s *discordgo.Session, channelID string, author *discordgo.User, policy domain.FirstContactPolicy) {
+	_ = ctx
+	userID := ""
+	display := ""
+	if author != nil {
+		userID = author.ID
+		display = author.Username
+	}
+	switch policy {
+	case domain.FirstContactReplyRequestAccess:
+		if s != nil && channelID != "" {
+			_, _ = s.ChannelMessageSend(channelID,
+				"Hi — this Nomi assistant isn't configured to talk to you yet. Ask the owner to add you to the allowlist.")
+		}
+	case domain.FirstContactQueueApproval:
+		if p.identities != nil && userID != "" {
+			_ = p.identities.Create(&domain.ChannelIdentity{
+				PluginID:           PluginID,
+				ConnectionID:       connID,
+				ExternalIdentifier: userID,
+				DisplayName:        display,
+				Enabled:            false,
+			})
+		}
+	case domain.FirstContactDrop:
+		// silent drop
+	}
 }
 
 func (p *Plugin) resolveChannelAssistant(connID string) (string, error) {

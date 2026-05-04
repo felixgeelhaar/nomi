@@ -532,6 +532,7 @@ func (p *Plugin) handleMessage(ctx context.Context, connID string, client *slack
 	}
 	if !p.senderAllowed(connID, assistantID, e.User) {
 		log.Printf("[slack plugin] blocking unknown sender %s on %s", e.User, connID)
+		p.handleFirstContact(ctx, connID, client, e.Channel, e.User, p.firstContactPolicy(connID))
 		return
 	}
 
@@ -630,6 +631,44 @@ func (p *Plugin) senderAllowed(connID, assistantID, userID string) bool {
 	}
 	ok, _ := p.identities.IsAllowed(PluginID, connID, userID, assistantID)
 	return ok
+}
+
+func (p *Plugin) firstContactPolicy(connID string) domain.FirstContactPolicy {
+	if p.connections == nil {
+		return domain.FirstContactDrop
+	}
+	conn, err := p.connections.GetByID(connID)
+	if err != nil || conn == nil {
+		return domain.FirstContactDrop
+	}
+	raw, _ := conn.Config["first_contact_policy"].(string)
+	policy := domain.FirstContactPolicy(raw)
+	if !policy.IsValid() {
+		return domain.FirstContactDrop
+	}
+	return policy
+}
+
+func (p *Plugin) handleFirstContact(ctx context.Context, connID string, client *slack.Client, channelID, userID string, policy domain.FirstContactPolicy) {
+	switch policy {
+	case domain.FirstContactReplyRequestAccess:
+		if client != nil && channelID != "" {
+			_, _, _ = client.PostMessageContext(ctx, channelID,
+				slack.MsgOptionText("Hi — this Nomi assistant isn't configured to talk to you yet. Ask the owner to add you to the allowlist.", false))
+		}
+	case domain.FirstContactQueueApproval:
+		if p.identities != nil && userID != "" {
+			_ = p.identities.Create(&domain.ChannelIdentity{
+				PluginID:           PluginID,
+				ConnectionID:       connID,
+				ExternalIdentifier: userID,
+				DisplayName:        userID,
+				Enabled:            false,
+			})
+		}
+	case domain.FirstContactDrop:
+		// silent drop
+	}
 }
 
 func (p *Plugin) resolveChannelAssistant(connID string) (string, error) {
