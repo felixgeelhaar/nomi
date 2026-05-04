@@ -68,9 +68,9 @@ func (r *PlanRepository) Create(plan *domain.Plan) error {
 			return err
 		}
 		_, err = tx.Exec(
-			`INSERT INTO step_definitions (id, plan_id, title, description, expected_tool, expected_capability, arguments, step_order, created_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			step.ID, step.PlanID, step.Title, step.Description, step.ExpectedTool, step.ExpectedCapability, argsCol, step.Order, step.CreatedAt,
+			`INSERT INTO step_definitions (id, plan_id, title, description, expected_tool, expected_capability, arguments, step_order, created_at, why)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			step.ID, step.PlanID, step.Title, step.Description, step.ExpectedTool, step.ExpectedCapability, argsCol, step.Order, step.CreatedAt, step.Why,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create step definition: %w", err)
@@ -118,12 +118,16 @@ func (r *PlanRepository) GetByRunID(runID string) (*domain.Plan, error) {
 func (r *PlanRepository) GetStepDefinition(id string) (*domain.StepDefinition, error) {
 	var step domain.StepDefinition
 	var argsRaw sql.NullString
+	var whyRaw sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, plan_id, title, description, expected_tool, expected_capability, arguments, step_order, created_at
+		`SELECT id, plan_id, title, description, expected_tool, expected_capability, arguments, step_order, created_at, why
 		 FROM step_definitions WHERE id = ?`,
 		id,
 	).Scan(&step.ID, &step.PlanID, &step.Title, &step.Description,
-		&step.ExpectedTool, &step.ExpectedCapability, &argsRaw, &step.Order, &step.CreatedAt)
+		&step.ExpectedTool, &step.ExpectedCapability, &argsRaw, &step.Order, &step.CreatedAt, &whyRaw)
+	if whyRaw.Valid {
+		step.Why = whyRaw.String
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +146,7 @@ func (r *PlanRepository) GetStepDefinition(id string) (*domain.StepDefinition, e
 // connection that the outer iteration was holding.
 func (r *PlanRepository) GetStepDefinitions(planID string) ([]domain.StepDefinition, error) {
 	rows, err := r.db.Query(
-		`SELECT id, plan_id, title, description, expected_tool, expected_capability, arguments, step_order, created_at
+		`SELECT id, plan_id, title, description, expected_tool, expected_capability, arguments, step_order, created_at, why
 		 FROM step_definitions WHERE plan_id = ? ORDER BY step_order`,
 		planID,
 	)
@@ -156,9 +160,13 @@ func (r *PlanRepository) GetStepDefinitions(planID string) ([]domain.StepDefinit
 	for rows.Next() {
 		var step domain.StepDefinition
 		var argsRaw sql.NullString
+		var whyRaw sql.NullString
 		if err := rows.Scan(&step.ID, &step.PlanID, &step.Title, &step.Description,
-			&step.ExpectedTool, &step.ExpectedCapability, &argsRaw, &step.Order, &step.CreatedAt); err != nil {
+			&step.ExpectedTool, &step.ExpectedCapability, &argsRaw, &step.Order, &step.CreatedAt, &whyRaw); err != nil {
 			return nil, fmt.Errorf("failed to scan step definition: %w", err)
+		}
+		if whyRaw.Valid {
+			step.Why = whyRaw.String
 		}
 		args, err := unmarshalArguments(argsRaw)
 		if err != nil {

@@ -490,6 +490,11 @@ export function PlanReviewCard({
                             {step.description}
                           </p>
                         )}
+                        {step.why && (
+                          <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1 italic">
+                            {step.why}
+                          </p>
+                        )}
                         {!!step.depends_on?.length && (
                           <p className="text-[11px] text-muted-foreground mt-1">
                             Depends on: {step.depends_on.map((d) => d.slice(0, 8)).join(", ")}
@@ -539,6 +544,22 @@ export function PlanReviewCard({
         >
           {showAllSteps ? "Show fewer steps" : `Show all ${draftSteps.length} steps`}
         </button>
+      )}
+
+      {/* Why this plan? — aggregate why fields + preference influence */}
+      {!isEditing && visibleSteps.some((s) => s.why) && (
+        <details className="text-xs border rounded-md p-2" open>
+          <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
+            Why this plan?
+          </summary>
+          <ul className="mt-1.5 space-y-1 pl-4 list-disc">
+            {visibleSteps.filter((s) => s.why).map((step) => (
+              <li key={step.id} className="text-muted-foreground">
+                <span className="text-foreground font-medium">{step.title}:</span> {step.why}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       <div className="flex items-center justify-end gap-2 pt-1">
