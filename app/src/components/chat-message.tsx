@@ -9,10 +9,13 @@ import {
   GripVertical,
   Plus,
   X,
+  Network,
+  List,
 } from "lucide-react";
 import type { Step, Plan, Approval, StepDefinition } from "@/types/api";
 import { labels } from "@/lib/labels";
 import { approvalCopy } from "@/lib/approval-copy";
+import { PlanGraph } from "./plan-graph";
 
 interface ThinkingBlockProps {
   status: string;
@@ -283,6 +286,8 @@ export function PlanReviewCard({
   const cancelRef = useRef<HTMLButtonElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showAllSteps, setShowAllSteps] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
+  const [selectedStepID, setSelectedStepID] = useState<string | undefined>();
   const [draftSteps, setDraftSteps] = useState<StepDefinition[]>([]);
 
   useEffect(() => {
@@ -413,92 +418,118 @@ export function PlanReviewCard({
             {steps.length} step{steps.length === 1 ? "" : "s"}. Review below; execution starts only after you approve.
           </p>
         </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={`p-1 rounded ${viewMode === "list" ? "bg-muted" : "hover:bg-muted/50"}`}
+            aria-label="List view"
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("graph")}
+            className={`p-1 rounded ${viewMode === "graph" ? "bg-muted" : "hover:bg-muted/50"}`}
+            aria-label="Graph view"
+          >
+            <Network className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
-      <ol className="space-y-2">
-        {visibleSteps.map((step, i) => (
-          <li
-            key={step.id}
-            className="bg-background border rounded-md p-3 text-sm"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2 min-w-0">
-                <GripVertical
-                  aria-hidden="true"
-                  className="w-3.5 h-3.5 mt-0.5 text-muted-foreground/60 flex-shrink-0"
-                />
-                <span className="text-xs text-muted-foreground font-mono mt-0.5 flex-shrink-0">
-                  {i + 1}.
-                </span>
-                <div className="min-w-0">
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <input
-                        value={step.title}
-                        onChange={(e) => updateDraft(i, "title", e.target.value)}
-                        placeholder="Step title"
-                        className="w-full rounded border px-2 py-1 text-sm"
-                      />
-                      <input
-                        value={step.description || ""}
-                        onChange={(e) => updateDraft(i, "description", e.target.value)}
-                        placeholder="Step description"
-                        className="w-full rounded border px-2 py-1 text-xs"
-                      />
-                      <input
-                        value={step.expected_tool || ""}
-                        onChange={(e) => updateDraft(i, "expected_tool", e.target.value)}
-                        placeholder="Expected tool (optional)"
-                        className="w-full rounded border px-2 py-1 text-xs"
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="font-medium truncate">{step.title}</div>
-                      {step.description && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {step.description}
-                        </p>
-                      )}
-                      {!!step.depends_on?.length && (
-                        <p className="text-[11px] text-muted-foreground mt-1">
-                          Depends on: {step.depends_on.map((d) => d.slice(0, 8)).join(", ")}
-                        </p>
-                      )}
-                    </>
+      {viewMode === "graph" ? (
+        <PlanGraph
+          steps={visibleSteps}
+          selectedStepID={selectedStepID}
+          onSelectStep={(stepID) => setSelectedStepID(stepID)}
+        />
+      ) : (
+        <ol className="space-y-2">
+          {visibleSteps.map((step, i) => (
+            <li
+              key={step.id}
+              className="bg-background border rounded-md p-3 text-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2 min-w-0">
+                  <GripVertical
+                    aria-hidden="true"
+                    className="w-3.5 h-3.5 mt-0.5 text-muted-foreground/60 flex-shrink-0"
+                  />
+                  <span className="text-xs text-muted-foreground font-mono mt-0.5 flex-shrink-0">
+                    {i + 1}.
+                  </span>
+                  <div className="min-w-0">
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <input
+                          value={step.title}
+                          onChange={(e) => updateDraft(i, "title", e.target.value)}
+                          placeholder="Step title"
+                          className="w-full rounded border px-2 py-1 text-sm"
+                        />
+                        <input
+                          value={step.description || ""}
+                          onChange={(e) => updateDraft(i, "description", e.target.value)}
+                          placeholder="Step description"
+                          className="w-full rounded border px-2 py-1 text-xs"
+                        />
+                        <input
+                          value={step.expected_tool || ""}
+                          onChange={(e) => updateDraft(i, "expected_tool", e.target.value)}
+                          placeholder="Expected tool (optional)"
+                          className="w-full rounded border px-2 py-1 text-xs"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="font-medium truncate">{step.title}</div>
+                        {step.description && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {step.description}
+                          </p>
+                        )}
+                        {!!step.depends_on?.length && (
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            Depends on: {step.depends_on.map((d) => d.slice(0, 8)).join(", ")}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {step.expected_tool && !isEditing && (
+                    <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-mono flex-shrink-0">
+                      {step.expected_tool}
+                    </span>
+                  )}
+                  {!isEditing && onFork && (
+                    <button
+                      type="button"
+                      onClick={() => onFork(step.id)}
+                      className="text-[10px] px-2 py-0.5 rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted"
+                    >
+                      Branch here
+                    </button>
+                  )}
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => removeDraftStep(i)}
+                      className="p-1 rounded hover:bg-muted"
+                      aria-label={`Remove step ${i + 1}`}
+                    >
+                      <X className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                {step.expected_tool && !isEditing && (
-                  <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-mono flex-shrink-0">
-                    {step.expected_tool}
-                  </span>
-                )}
-                {!isEditing && onFork && (
-                  <button
-                    type="button"
-                    onClick={() => onFork(step.id)}
-                    className="text-[10px] px-2 py-0.5 rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted"
-                  >
-                    Branch here
-                  </button>
-                )}
-                {isEditing && (
-                  <button
-                    type="button"
-                    onClick={() => removeDraftStep(i)}
-                    className="p-1 rounded hover:bg-muted"
-                    aria-label={`Remove step ${i + 1}`}
-                  >
-                    <X className="w-3.5 h-3.5 text-muted-foreground" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      )}
 
       {draftSteps.length > 3 && !isEditing && (
         <button
