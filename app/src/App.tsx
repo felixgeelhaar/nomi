@@ -32,27 +32,24 @@ import {
 } from "lucide-react";
 
 function ConnectionStatus() {
-  const [connected, setConnected] = useState<boolean | null>(null);
+  // Health check via React Query so the cache is shared with anything
+  // else that might want to render the daemon's reachability, and so
+  // we don't run a parallel setInterval that competes with the Query
+  // refetch loop. retry: false because the failure mode IS the signal.
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.health.check(),
+    queryFn: () => healthApi.check(),
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    retry: false,
+    staleTime: 0,
+  });
 
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        await healthApi.check();
-        setConnected(true);
-      } catch {
-        setConnected(false);
-      }
-    };
-
-    checkHealth();
-    const interval = setInterval(checkHealth, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (connected === null) {
+  if (isLoading && !data && !isError) {
     return <Badge variant="outline">Checking...</Badge>;
   }
 
+  const connected = !isError && !!data;
   return (
     <Badge variant={connected ? "default" : "destructive"}>
       {connected ? "Connected" : "Disconnected"}

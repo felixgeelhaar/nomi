@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useState } from "react";
 import { hasTauriBridge, useTauriEvents } from "@/hooks/use-tauri-events";
 import { queryKeys } from "@/lib/query-keys";
+import { appendStreamDelta, clearStreamDelta, dropStream } from "@/lib/streaming";
 import type { Event as NomiEvent } from "@/types/api";
 
 export interface EventConnectionState {
@@ -95,10 +96,35 @@ function handleEventInvalidations(
   if (ev.type.startsWith("step.")) {
     // step.streaming fires once per token, which would invalidate the
     // run detail query 50+ times per llm.chat call and flood the UI.
-    // Live token rendering is consumed off the event payload by the
-    // chat panel directly; the run detail still refreshes on
-    // step.completed.
-    if (ev.type === "step.streaming") return;
+    // Tokens are routed into the streaming store instead — chat-interface
+    // subscribes via useStepStream(stepId) and renders the live buffer
+    // outside React Query. The run detail still refreshes on
+    // step.completed so the persisted output supersedes the live buffer.
+    if (ev.type === "step.streaming") {
+      const stepId = ev.step_id ?? "";
+      const delta = typeof ev.payload?.delta === "string" ? ev.payload.delta : "";
+      const seq = typeof ev.payload?.seq === "number" ? ev.payload.seq : undefined;
+      if (stepId && delta) {
+        appendStreamDelta(stepId, delta, seq);
+      }
+      return;
+    }
+    if (ev.type === "step.started" && ev.step_id) {
+      // A retry restarts the same step from scratch; clear any prior
+      // stream buffer so the new attempt's tokens don't append to the
+      // stale ones the user already saw fail.
+      clearStreamDelta(ev.step_id);
+    }
+    if (
+      (ev.type === "step.completed" || ev.type === "step.failed") &&
+      ev.step_id
+    ) {
+      // Don't free the buffer immediately; let any mounted subscriber
+      // unmount first so we don't yank text out from under them while
+      // the persisted output is still propagating through React Query.
+      const sid = ev.step_id;
+      setTimeout(() => dropStream(sid), 200);
+    }
     qc.invalidateQueries({ queryKey: queryKeys.runs.detail(ev.run_id) });
     return;
   }

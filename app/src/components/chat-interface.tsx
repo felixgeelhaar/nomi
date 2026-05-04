@@ -12,6 +12,7 @@ import { runsApi, assistantsApi, approvalsApi, pluginsApi } from "@/lib/api";
 import type { Run, Assistant, Plugin } from "@/types/api";
 import { ThinkingBlock, ApprovalCard, PlanReviewCard } from "@/components/chat-message";
 import { pickResponseText } from "@/lib/response-text";
+import { useStepStream } from "@/lib/streaming";
 import { OutcomeConnectorPicker } from "@/components/onboarding/outcome-connectors";
 import { queryKeys } from "@/lib/query-keys";
 import { errorMessage } from "@/lib/utils";
@@ -463,6 +464,26 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
 
   const getResponseText = () => pickResponseText(chatData?.steps, chatData?.plan);
 
+  // Find the running step (if any) so we can render its streaming buffer.
+  // Prefer an llm.chat step since those are what stream tokens; fall back
+  // to any running step so other streaming-capable tools we add later
+  // light up automatically.
+  const runningStep = (() => {
+    if (!chatData?.steps) return undefined;
+    const running = chatData.steps.filter((s) => s.status === "running");
+    if (running.length === 0) return undefined;
+    const toolByDef = new Map<string, string | undefined>();
+    for (const def of chatData.plan?.steps ?? []) {
+      toolByDef.set(def.id, def.expected_tool);
+    }
+    return (
+      running.find(
+        (s) => s.step_definition_id && toolByDef.get(s.step_definition_id) === "llm.chat",
+      ) ?? running[0]
+    );
+  })();
+  const streamingText = useStepStream(runningStep?.id);
+
   const loading = runsQuery.isLoading || assistantsQuery.isLoading;
   const sending = createRun.isPending;
 
@@ -742,6 +763,35 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
                       plan={chatData.plan}
                       agentName={assistants.find((a) => a.id === chatData.run.assistant_id)?.name}
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* Live streaming buffer for the currently-running step.
+                  Hidden when the step has produced no tokens yet (so we
+                  don't render an empty bubble) and once the persisted
+                  output supersedes the live text via getResponseText(). */}
+              {chatData && streamingText && !getResponseText() && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
+                        <Bot className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {assistants.find((a) => a.id === chatData.run.assistant_id)?.name || "Nomi"}
+                      </span>
+                    </div>
+                    <div
+                      className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3"
+                      aria-live="polite"
+                      aria-atomic="false"
+                    >
+                      <p className="text-sm whitespace-pre-wrap">
+                        {streamingText}
+                        <span className="ml-0.5 inline-block w-1.5 h-3 bg-foreground/60 align-baseline animate-pulse" aria-hidden="true" />
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

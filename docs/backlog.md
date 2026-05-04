@@ -1125,3 +1125,28 @@ Action:
 Acceptance: in a 3-step plan (llm.chat → filesystem.write → command.exec), the chat bubble below the ThinkingBlock contains the llm.chat output verbatim. Add Vitest test covering the multi-step shape.
 
 ---
+
+## Cognitive-stack library fit assessment: olymp / mnemos / chronos
+
+Source: user request 2026-05-04. Evaluation, not implementation work.
+
+README "Powered by" section claims Nomi rides olymp + mnemos + chronos + nous + praxis. Reality (verified via go.mod + source): NONE of those external libraries are imported. `pkg/statekit/` is vendored, `internal/memory/manager.go` is a homegrown ~200-line SQLite store, no scout / olymp / chronos integration exists. The "Powered by" narrative is currently aspirational marketing.
+
+Per-library V1 fit:
+
+**olymp (AI control plane)** — STABLE, full HTTP/SSE/MCP/CLI. Provides: Run/Intent/Session/Audit/Outcome, observe→understand→decide→act→learn loop, multi-tenant orchestration.
+- Overlap: Nomi already owns the runtime, state machines, audit, REST+SSE, permission engine. Adopting olymp means either (a) rewriting Nomi as an olymp consumer (massive refactor, weeks) or (b) running both control planes side-by-side (confusing, two `nomid`-shaped daemons).
+- Verdict: **Skip for V1.** Revisit only if Nomi pivots to being a node in a multi-runtime cognitive stack with olymp as the hub.
+
+**mnemos (knowledge engine v0.13.0)** — STABLE. Provides: evidence-linked claims, contradiction detection, multi-backend (SQLite default), MCP+gRPC server, scoped queries (Service/Env/Team/entity), Go client SDK.
+- Overlap: Nomi's `internal/memory/manager.go` is a stub by comparison. Mnemos offers everything Nomi's roadmap claims about memory and more.
+- Integration shape: use mnemos as an embedded Go library (NOT separate server) — keep storage in `~/Library/Application Support/Nomi/nomi.db`, wire `memory.Manager` through the mnemos client SDK in in-process mode.
+- Verdict: **Strong fit, ship in V1.1 or V2.** Replaces a homegrown stub with a real library, matches the README narrative, brings hallucination-reduction without compromising local-first. Treat as a discrete feature; estimate 1-2 days for embedded integration + test surface.
+
+**chronos (time-series patterns v0.1.0)** — EARLY. Provides: 8 pattern detectors (recurrence, trend, spike, drop, stall, anomaly, seasonality, correlation) over typed Signals.
+- Overlap: None today. Nomi has no time-series concerns at the runtime layer.
+- Verdict: **Skip for V1.** Reconsider for V2 if Nomi adds an observability layer for "did this assistant get slower / less reliable across runs" type analytics.
+
+Recommendation: Promote mnemos integration into the next planning cycle (post-V1). Drop olymp + chronos from "Powered by" narrative until they're actually wired in. Keeping aspirational claims in the README hurts trust more than restraint hurts moat.
+
+---

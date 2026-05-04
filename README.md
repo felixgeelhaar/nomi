@@ -1,23 +1,22 @@
 <h1 align="center">Nomi</h1>
 
 <p align="center">
-  <strong>The agent platform that runs on your laptop and answers to you.</strong><br />
-  A coding companion. A personal AI. A homelab automation layer. Pick the
-  persona, point it at any LLM, and Nomi runs the agent on <em>your</em>
-  machine — with a plan you approve before any tool touches your filesystem.
+  <strong>Approve every step before your AI touches your filesystem.</strong><br />
+  Local-first coding agent that plans, asks, then runs — on your machine,
+  with your LLM of choice. Code never leaves your laptop unless you
+  decide otherwise.
 </p>
 
 <p align="center">
   <a href="https://github.com/felixgeelhaar/nomi/releases/latest"><img src="https://img.shields.io/github/v/release/felixgeelhaar/nomi?include_prereleases&color=blue" alt="release"></a>
   <a href="https://github.com/felixgeelhaar/nomi/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/felixgeelhaar/nomi/release.yml?branch=main" alt="build"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/felixgeelhaar/nomi" alt="license"></a>
-  <img src="https://img.shields.io/badge/journeys-22%2F22%20passing-brightgreen" alt="journeys 22/22 passing">
   <img src="https://img.shields.io/badge/local--first-yes-green" alt="local-first">
   <a href="https://github.com/felixgeelhaar/nomi/stargazers"><img src="https://img.shields.io/github/stars/felixgeelhaar/nomi?style=social" alt="stars"></a>
 </p>
 
 <p align="center">
-  <a href="#drop-in-replacement-for">Replaces</a> •
+  <a href="#compared-to">Compared to</a> •
   <a href="#install">Install</a> •
   <a href="#quickstart">Quickstart</a> •
   <a href="#features">Features</a> •
@@ -34,10 +33,11 @@
 
 ## Why Nomi
 
-LangChain ships your agents to the cloud. AutoGPT trusts the model.
-Personal-AI products keep your memory in someone else's database. Nomi
-makes every step a contract: a plan you approve, tools that ask before
-they act, memory you can read and edit. Open-source all the way down.
+Cloud coding agents read your repo, run shell commands, and write files
+the moment the model is confident — and the model is always confident.
+Nomi makes every step a contract: a plan you approve, tools that ask
+before they act, memory you can read and edit. Open-source all the way
+down. Runs entirely on your laptop, against any LLM you point it at.
 
 - **Local-first by default — self-hosted by choice.** On a laptop the
   data, conversations, and secrets stay on your machine (SQLite, OS
@@ -53,20 +53,26 @@ they act, memory you can read and edit. Open-source all the way down.
   you want frontier models. LM Studio, vLLM, Together — anything that
   speaks the OpenAI or Anthropic wire format. Per-assistant overrides
   ship out of the box.
-- **Real plugins, real isolation.** First-party plugins for Telegram,
-  Email, Slack, Discord, Gmail, GitHub, Calendar, Obsidian, Browser
-  automation, and TTS/STT — plus a WASM marketplace for third-party
-  extensions, all gated through the same permission engine.
+- **Real plugins, real isolation.** Telegram ships today as a
+  first-party connector, with the WASM plugin marketplace next.
+  Connectors for Email, Calendar, GitHub, Slack, Discord, Obsidian,
+  Browser automation, and TTS/STT are on the
+  [roadmap](https://github.com/felixgeelhaar/nomi/blob/main/.roady/spec.yaml) —
+  every one will be gated through the same permission engine, with no
+  bypass paths.
 
-## Drop-in replacement for
+## Compared to
 
-| You're using | Why people switch to Nomi |
+The wedge is **Claude Code with local Ollama** — same coding-agent UX,
+but the agent asks before it touches your filesystem and your code never
+crosses your network unless you point it at a remote provider.
+
+| Alternative | What's different about Nomi |
 |---|---|
-| **OpenClaw / OpenCode / Claude Code clones** | Same coding-agent UX (read repo, write files, run commands) but **local-first**, **BYO-LLM**, and **plan-review-before-execution** instead of YOLO. Use the bundled Code Reviewer template; point it at Ollama; never send code to a vendor again. |
-| **Hermes / personal-AI agents** | Same "remembers what you told it, runs across email + calendar + notes" but the memory **lives on your laptop** and is editable. Three explicit scopes (workspace / profile / preferences). No cloud account. |
-| **Pi (Inflection) / conversational AI** | Same warm chat interface, same multi-turn threading — without the "your conversations train our model" footnote. Pick the model, pick the safety profile, own the data. |
-| **LangChain / AutoGPT / CrewAI** | Same "let an LLM call tools" capability, except every call is **gated by capability**, **logged in a hash-chained audit trail**, and **paused for approval** when the assistant's policy says so. Production-shaped from day one. |
-| **Bespoke agent stacks** | A real state machine (`Run → Plan → Step`), a real permission engine, a real plugin model, a real desktop UI. Stop reinventing scaffolding. |
+| **Claude Code / Cursor agents / Cline** | Same goal-driven coding flow (read repo, plan changes, write files, run commands), but every step is laid out as an approveable plan first, every tool call is gated by an explicit capability, and every event is persisted to a hash-chained audit log. Point it at Ollama and your repo never leaves your laptop. |
+| **Goose / OpenInterpreter / Aider** | Same local-first stance, but with a real state machine (`Run → Plan → Step`), a real permission engine, real multi-step plans the user can edit, and a desktop UI built around the approval moment instead of around the chat box. |
+| **LangChain / AutoGPT / CrewAI** | Those are kits — you assemble the agent. Nomi is the finished product: a working state machine, a permission engine, a memory subsystem, a Tauri shell, all wired up. |
+| **Bespoke agent stacks** | Stop reinventing scaffolding. The runtime, the audit trail, the approval workflow, and the plugin model all ship today. Bring your assistants and your prompts. |
 
 ## Install
 
@@ -226,43 +232,28 @@ policy, folder context, model override, and bound plugin connections.
 
 ## Powered by
 
-Nomi is the application layer. The runtime sits on a Go cognitive stack
-of independently-released libraries — use them inside your own projects,
-or contribute back upstream.
+Nomi is the application layer. The runtime is built directly into this
+repository today; over time, load-bearing subsystems move out into
+independently-released Go libraries you can use in your own projects.
 
-- **[`statekit`](https://github.com/felixgeelhaar/statekit)** — Go-native
-  statechart execution engine with XState JSON compatibility. Powers
-  every `Run` / `Plan` / `Step` transition in `pkg/statekit`.
-- **[`mnemos`](https://github.com/felixgeelhaar/mnemos)** — local-first
-  knowledge engine that eliminates AI hallucination through
-  evidence-backed claims. The memory subsystem ("Mnemos" in the
-  codebase) is built on it.
-- **[`scout`](https://github.com/felixgeelhaar/scout)** — AI-powered
-  browser automation for Go. Pure CDP, single binary, 66-tool MCP
-  server. Drives the Browser plugin AND the user-journey test runner.
+- **[`statekit`](https://github.com/felixgeelhaar/statekit)** —
+  statechart execution engine with XState JSON compatibility. The
+  vendored `pkg/statekit` carries the same model that powers every
+  `Run` / `Plan` / `Step` transition.
 - **[`roady`](https://github.com/felixgeelhaar/roady)** — planning-first
-  system of record for software work. Every Nomi feature change passes
-  through a `roady` spec before code lands.
+  system of record. Every Nomi feature change passes through a `roady`
+  spec before code lands; see [`.roady/`](.roady/) for the live
+  spec/plan/state.
+- **[`scout`](https://github.com/felixgeelhaar/scout)** — AI-powered
+  browser automation. Used by the user-journey test runner; the Browser
+  plugin will adopt it once the connector ships.
+- **[`mnemos`](https://github.com/felixgeelhaar/mnemos)** — evidence-
+  backed local-first knowledge engine. Today Nomi's memory subsystem is
+  a thin homegrown SQLite store; integration with mnemos as an embedded
+  library is on the roadmap.
 
-The cognitive stack continues with
-**[`olymp`](https://github.com/felixgeelhaar/olymp)** (control plane)
-coordinating
-**[`mnemos`](https://github.com/felixgeelhaar/mnemos)** (memory) +
-**[`chronos`](https://github.com/felixgeelhaar/chronos)** (time
-perception) +
-**[`nous`](https://github.com/felixgeelhaar/nous)** (commitments) +
-**[`praxis`](https://github.com/felixgeelhaar/praxis)** (execution
-layer). Nomi is one consumer of that stack — others can be too.
-
-Production hardening borrows from
-**[`bolt`](https://github.com/felixgeelhaar/bolt)** (logging) and
-**[`fortify`](https://github.com/felixgeelhaar/fortify)** (resilience
-patterns). Adjacent agent runtimes:
-**[`agent-go`](https://github.com/felixgeelhaar/agent-go)**,
-**[`axi-go`](https://github.com/felixgeelhaar/axi-go)**,
-**[`simon`](https://github.com/felixgeelhaar/simon)**.
-
-External: [Tauri](https://tauri.app), [Gin](https://github.com/gin-gonic/gin),
+External runtime dependencies: [Tauri](https://tauri.app),
+[Gin](https://github.com/gin-gonic/gin),
 [modernc.org/sqlite](https://gitlab.com/cznic/sqlite),
 [wazero](https://wazero.io), [Ollama](https://ollama.com),
 [shadcn/ui](https://ui.shadcn.com), [Radix UI](https://www.radix-ui.com),

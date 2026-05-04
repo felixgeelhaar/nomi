@@ -42,4 +42,8 @@ export const queryKeys = {
     configs: () => ["connectors", "configs"] as const,
     statuses: () => ["connectors", "statuses"] as const,
   },
+  health: {
+    all: ["health"] as const,
+    check: () => ["health", "check"] as const,
+  },
 };
