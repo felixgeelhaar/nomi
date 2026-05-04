@@ -585,12 +585,39 @@ func (r *Runtime) EditPlan(ctx context.Context, runID string, stepDefs []domain.
 	// Capture plan-edit preference memory so future planning can adapt.
 	if oldPlan != nil && r.memManager != nil {
 		assistantID := run.AssistantID
+		now := time.Now().UTC()
+
+		// Build map of old steps by title for comparison
+		oldStepTitles := make(map[string]domain.StepDefinition)
+		for _, s := range oldPlan.Steps {
+			oldStepTitles[s.Title] = s
+		}
+
+		// Detect removed steps (rejections)
+		newStepTitles := make(map[string]bool)
+		for _, s := range plan.Steps {
+			newStepTitles[s.Title] = true
+		}
+		for _, oldStep := range oldPlan.Steps {
+			if !newStepTitles[oldStep.Title] {
+				entry := &domain.MemoryEntry{
+					Scope:       "preferences",
+					Content:     fmt.Sprintf("User removed step: '%s' (%s). Avoid similar steps for similar goals.", oldStep.Title, oldStep.Description),
+					AssistantID: &assistantID,
+					RunID:       &run.ID,
+					CreatedAt:   now,
+				}
+				_ = r.memManager.Save(entry)
+			}
+		}
+
+		// Generic edit summary
 		entry := &domain.MemoryEntry{
 			Scope:       "preferences",
 			Content:     fmt.Sprintf("User edited plan for run %s (from %d steps to %d). Prefer this revised structure for similar goals.", run.ID, len(oldPlan.Steps), len(plan.Steps)),
 			AssistantID: &assistantID,
 			RunID:       &run.ID,
-			CreatedAt:   time.Now().UTC(),
+			CreatedAt:   now,
 		}
 		_ = r.memManager.Save(entry)
 	}
