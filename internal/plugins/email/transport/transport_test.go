@@ -85,3 +85,27 @@ func TestConfigDefaults_FilledInDuringSend(t *testing.T) {
 		t.Fatalf("config-fill-in regressed: %v", err)
 	}
 }
+
+func TestExtractMessageIDListFromHeader_References(t *testing.T) {
+	raw := []byte("From: alice@example.com\r\nReferences: <a@x> <b@y>\r\n\r\nBody")
+	ids := extractMessageIDListFromHeader(raw, "References")
+	if len(ids) != 2 || ids[0] != "<a@x>" || ids[1] != "<b@y>" {
+		t.Fatalf("unexpected references: %#v", ids)
+	}
+}
+
+func TestExtractMessageIDListFromHeader_Folded(t *testing.T) {
+	raw := []byte("From: alice@example.com\r\nReferences: <a@x>\r\n\t<b@y>\r\n\r\nBody")
+	ids := extractMessageIDListFromHeader(raw, "References")
+	if len(ids) != 2 || ids[0] != "<a@x>" || ids[1] != "<b@y>" {
+		t.Fatalf("unexpected folded references: %#v", ids)
+	}
+}
+
+func TestExtractFirstMessageIDFromHeader_InReplyTo(t *testing.T) {
+	raw := []byte("Subject: hi\nIn-Reply-To: <parent@x>\n\nBody")
+	id := extractFirstMessageIDFromHeader(raw, "In-Reply-To")
+	if id != "<parent@x>" {
+		t.Fatalf("got %q, want <parent@x>", id)
+	}
+}

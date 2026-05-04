@@ -365,6 +365,17 @@ func FetchNew(ctx context.Context, cfg Config, sinceUID uint32) ([]Message, uint
 		}
 		for _, bs := range m.BodySection {
 			if bs.Bytes != nil {
+				// Some IMAP servers include the RFC 5322 headers in the fetched
+				// body section; when present, parse References/In-Reply-To so
+				// threading can prefer the full ancestor chain.
+				if refs := extractMessageIDListFromHeader(bs.Bytes, "References"); len(refs) > 0 {
+					msg.References = refs
+				}
+				if msg.InReplyTo == "" {
+					if irt := extractFirstMessageIDFromHeader(bs.Bytes, "In-Reply-To"); irt != "" {
+						msg.InReplyTo = irt
+					}
+				}
 				msg.Body = extractPlainBody(bs.Bytes)
 				break
 			}
@@ -410,6 +421,86 @@ func addressListToStrings(addrs []imap.Address) []string {
 func formatAddressList(addrs []imap.Address) string {
 	parts := addressListToStrings(addrs)
 	return strings.Join(parts, ", ")
+}
+
+func extractMessageIDListFromHeader(raw []byte, header string) []string {
+	if len(raw) == 0 || header == "" {
+		return nil
+	}
+	b := string(raw)
+	end := strings.Index(b, "\r\n\r\n")
+	if end < 0 {
+		end = strings.Index(b, "\n\n")
+	}
+	if end < 0 {
+		return nil
+	}
+	headers := b[:end]
+	var value string
+	lines := strings.Split(strings.ReplaceAll(headers, "\r\n", "\n"), "\n")
+	needle := strings.ToLower(header) + ":"
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if strings.HasPrefix(strings.ToLower(line), needle) {
+			value = strings.TrimSpace(line[len(needle):])
+			// Folded headers: continuation lines start with SP/HT.
+			for j := i + 1; j < len(lines); j++ {
+				next := lines[j]
+				if next == "" {
+					break
+				}
+				if strings.HasPrefix(next, " ") || strings.HasPrefix(next, "\t") {
+					value += " " + strings.TrimSpace(next)
+					continue
+				}
+				break
+			}
+			break
+		}
+	}
+	if value == "" {
+		return nil
+	}
+	ids := extractMessageIDs(value)
+	if len(ids) == 0 {
+		return nil
+	}
+	return ids
+}
+
+func extractFirstMessageIDFromHeader(raw []byte, header string) string {
+	ids := extractMessageIDListFromHeader(raw, header)
+	if len(ids) == 0 {
+		return ""
+	}
+	return ids[0]
+}
+
+func extractMessageIDs(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, "<")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		end := strings.Index(p, ">")
+		if end < 0 {
+			continue
+		}
+		id := strings.TrimSpace(p[:end])
+		if id == "" {
+			continue
+		}
+		out = append(out, "<"+id+">")
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // ParseAddress normalizes an RFC 5322 address string to the bare
