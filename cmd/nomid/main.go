@@ -185,6 +185,7 @@ func main() {
 	bindingRepo := db.NewAssistantBindingRepository(database)
 	conversationRepo := db.NewConversationRepository(database)
 	identityRepo := db.NewChannelIdentityRepository(database)
+	emailTriggerRepo := db.NewEmailTriggerRepository(database)
 
 	// Telegram plugin — migrated from the old connector shape. Reads from
 	// plugin_connections + assistant_connection_bindings. The data
@@ -204,7 +205,7 @@ func main() {
 	// Email plugin — generic IMAP/SMTP channel. Provider-specific flavors
 	// (Gmail/Outlook OAuth) land as their own plugins on top of this
 	// transport layer.
-	emailPlugin := emailplugin.NewPlugin(rt, connectionRepo, bindingRepo, conversationRepo, identityRepo, secretStore, eventBus)
+	emailPlugin := emailplugin.NewPlugin(rt, connectionRepo, bindingRepo, conversationRepo, identityRepo, emailTriggerRepo, secretStore, eventBus)
 	if err := pluginRegistry.Register(emailPlugin); err != nil {
 		log.Fatalf("Failed to register Email plugin: %v", err)
 	}

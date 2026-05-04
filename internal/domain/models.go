@@ -325,3 +325,16 @@ type Event struct {
 	Payload   map[string]interface{} `json:"payload,omitempty"`
 	Timestamp time.Time              `json:"timestamp"`
 }
+
+// TriggerRule is a simple predicate over an inbound email message.
+// Used by the Email plugin to route messages to specific assistants.
+// Fields are optional (substring match, case-insensitive); empty fields
+// are skipped. A rule with every filter empty matches everything.
+type TriggerRule struct {
+	Name            string `json:"name"`
+	AssistantID     string `json:"assistant_id"`
+	FromContains    string `json:"from_contains,omitempty"`
+	SubjectContains string `json:"subject_contains,omitempty"`
+	BodyContains    string `json:"body_contains,omitempty"`
+	Enabled         bool   `json:"enabled"`
+}

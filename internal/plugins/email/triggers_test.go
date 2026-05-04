@@ -3,11 +3,12 @@ package email
 import (
 	"testing"
 
+	"github.com/felixgeelhaar/nomi/internal/domain"
 	"github.com/felixgeelhaar/nomi/internal/plugins/email/transport"
 )
 
 func TestTriggerRule_FiltersAreCaseInsensitive(t *testing.T) {
-	rule := TriggerRule{
+	rule := domain.TriggerRule{
 		AssistantID:     "asst-1",
 		FromContains:    "BOSS@",
 		SubjectContains: "urgent",
@@ -18,20 +19,20 @@ func TestTriggerRule_FiltersAreCaseInsensitive(t *testing.T) {
 		Subject: "URGENT: prod is down",
 		Body:    "fix it",
 	}
-	if !rule.matches(m) {
+	if !matchesTriggerRule(&rule, m) {
 		t.Fatal("case-insensitive filters should match")
 	}
 	// A non-matching From should fail the rule even if subject matches.
 	m.From = "bob@example.com"
-	if rule.matches(m) {
+	if matchesTriggerRule(&rule, m) {
 		t.Fatal("rule should not match when From filter fails")
 	}
 }
 
 func TestTriggerRule_DisabledNeverMatches(t *testing.T) {
-	rule := TriggerRule{AssistantID: "asst", Enabled: false}
+	rule := domain.TriggerRule{AssistantID: "asst", Enabled: false}
 	m := transport.Message{From: "a@b.c"}
-	if rule.matches(m) {
+	if matchesTriggerRule(&rule, m) {
 		t.Fatal("disabled rule should never match")
 	}
 }
@@ -39,9 +40,9 @@ func TestTriggerRule_DisabledNeverMatches(t *testing.T) {
 func TestTriggerRule_EmptyAssistantIDRejected(t *testing.T) {
 	// A rule with no target assistant_id can't route anywhere — treat
 	// as "never matches" so the channel-role flow still gets the message.
-	rule := TriggerRule{AssistantID: "", Enabled: true, FromContains: "boss@"}
+	rule := domain.TriggerRule{AssistantID: "", Enabled: true, FromContains: "boss@"}
 	m := transport.Message{From: "boss@example.com"}
-	if rule.matches(m) {
+	if matchesTriggerRule(&rule, m) {
 		t.Fatal("rule without assistant_id should not match")
 	}
 }
@@ -49,15 +50,15 @@ func TestTriggerRule_EmptyAssistantIDRejected(t *testing.T) {
 func TestTriggerRule_CatchAll(t *testing.T) {
 	// A rule with all filters empty + enabled + an assistant acts as a
 	// catch-all — useful for "fire every email at the triage assistant".
-	rule := TriggerRule{AssistantID: "asst-triage", Enabled: true}
+	rule := domain.TriggerRule{AssistantID: "asst-triage", Enabled: true}
 	m := transport.Message{From: "anyone@example.com", Subject: "Hi"}
-	if !rule.matches(m) {
+	if !matchesTriggerRule(&rule, m) {
 		t.Fatal("catch-all rule should match everything")
 	}
 }
 
 func TestFirstMatchingRule_FirstWins(t *testing.T) {
-	rules := []TriggerRule{
+	rules := []domain.TriggerRule{
 		{Name: "specific", AssistantID: "asst-1", FromContains: "alert", Enabled: true},
 		{Name: "catch-all", AssistantID: "asst-2", Enabled: true},
 	}

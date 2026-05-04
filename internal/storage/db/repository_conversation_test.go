@@ -20,7 +20,7 @@ func TestConversationRepository_FindOrCreate_IdempotentByNaturalKey(t *testing.T
 	convRepo := NewConversationRepository(database)
 
 	// First call creates.
-	c1, created1, err := convRepo.FindOrCreate("com.nomi.telegram", "conn-1", "chat-42", "asst-1")
+	c1, created1, err := convRepo.FindOrCreate("com.nomi.telegram", "conn-1", "chat-42", "asst-1", nil)
 	if err != nil {
 		t.Fatalf("FindOrCreate: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestConversationRepository_FindOrCreate_IdempotentByNaturalKey(t *testing.T
 	}
 
 	// Second call with same natural key returns the same row, created=false.
-	c2, created2, err := convRepo.FindOrCreate("com.nomi.telegram", "conn-1", "chat-42", "asst-1")
+	c2, created2, err := convRepo.FindOrCreate("com.nomi.telegram", "conn-1", "chat-42", "asst-1", nil)
 	if err != nil {
 		t.Fatalf("FindOrCreate (2nd): %v", err)
 	}
@@ -53,11 +53,11 @@ func TestConversationRepository_ListByAssistant_OrderedByUpdated(t *testing.T) {
 	_ = connRepo.Create(&domain.Connection{ID: "c", PluginID: "com.nomi.telegram", Name: "b", Enabled: true})
 
 	convRepo := NewConversationRepository(database)
-	a, _, _ := convRepo.FindOrCreate("com.nomi.telegram", "c", "chat-a", "asst-1")
-	b, _, _ := convRepo.FindOrCreate("com.nomi.telegram", "c", "chat-b", "asst-1")
+	a, _, _ := convRepo.FindOrCreate("com.nomi.telegram", "c", "chat-a", "asst-1", nil)
+	b, _, _ := convRepo.FindOrCreate("com.nomi.telegram", "c", "chat-b", "asst-1", nil)
 
 	// Touch b so it sorts first.
-	if err := convRepo.Touch(b.ID); err != nil {
+	if err := convRepo.Touch(b.ID, nil); err != nil {
 		t.Fatalf("Touch: %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestRunRepository_RoundTripsConversationID(t *testing.T) {
 	_ = connRepo.Create(&domain.Connection{ID: "c", PluginID: "com.nomi.telegram", Name: "b", Enabled: true})
 
 	convRepo := NewConversationRepository(database)
-	conv, _, _ := convRepo.FindOrCreate("com.nomi.telegram", "c", "chat-1", "asst-1")
+	conv, _, _ := convRepo.FindOrCreate("com.nomi.telegram", "c", "chat-1", "asst-1", nil)
 
 	runRepo := NewRunRepository(database)
 	convID := conv.ID

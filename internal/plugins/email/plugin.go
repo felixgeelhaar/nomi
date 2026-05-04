@@ -36,17 +36,18 @@ const defaultPollInterval = 60 * time.Second
 
 // Plugin is the Email plugin implementation.
 type Plugin struct {
-	rt            *runtime.Runtime
-	connections   *db.ConnectionRepository
-	bindings      *db.AssistantBindingRepository
-	conversations *db.ConversationRepository
-	identities    *db.ChannelIdentityRepository
-	secrets       secrets.Store
-	eventBus      *events.EventBus
+	rt             *runtime.Runtime
+	connections    *db.ConnectionRepository
+	bindings       *db.AssistantBindingRepository
+	conversations  *db.ConversationRepository
+	identities     *db.ChannelIdentityRepository
+	triggerRules   *db.EmailTriggerRepository
+	secrets        secrets.Store
+	eventBus       *events.EventBus
 
 	mu            sync.RWMutex
 	running       bool
-	cancelPerConn map[string]context.CancelFunc
+	cancelPerConn  map[string]context.CancelFunc
 	uidWatermark  map[string]uint32 // connection_id -> highest UID processed
 	healthPerConn map[string]*plugins.ConnectionHealth
 }
@@ -56,18 +57,20 @@ type Plugin struct {
 func NewPlugin(
 	rt *runtime.Runtime,
 	conns *db.ConnectionRepository,
-	binds *db.AssistantBindingRepository,
+	bindings *db.AssistantBindingRepository,
 	convs *db.ConversationRepository,
 	idents *db.ChannelIdentityRepository,
+	triggerRepo *db.EmailTriggerRepository,
 	secrets secrets.Store,
 	eventBus *events.EventBus,
 ) *Plugin {
 	return &Plugin{
 		rt:            rt,
 		connections:   conns,
-		bindings:      binds,
+		bindings:      bindings,
 		conversations: convs,
 		identities:    idents,
+		triggerRules:   triggerRepo,
 		secrets:       secrets,
 		eventBus:      eventBus,
 	}
@@ -352,9 +355,11 @@ func (p *Plugin) handleMessage(ctx context.Context, connID string, cfg transport
 	// Trigger rules short-circuit the channel-role flow. A matched rule
 	// fires a Run against the rule's target assistant and returns.
 	conn, _ := p.connections.GetByID(connID)
-	if conn != nil {
-		rules := triggerRulesFor(conn.Config)
-		if rule := firstMatchingRule(rules, m); rule != nil {
+	if conn != nil && p.triggerRules != nil {
+		rules, err := p.triggerRules.ListByConnection(connID)
+		if err != nil {
+			log.Printf("[email plugin] failed to list trigger rules: %v", err)
+		} else if rule := firstMatchingRule(rules, m); rule != nil {
 			// Identity allowlist still applies — the rule's assistant is
 			// the target, but unknown senders are still gated.
 			senderAddr, _ := transport.ParseAddress(m.From)

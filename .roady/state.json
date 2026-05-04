@@ -1,6 +1,6 @@
 {
   "project_id": "Nomi",
-  "version": 384,
+  "version": 392,
   "task_states": {
     "approval-flow": {
       "status": "done",
@@ -1312,9 +1312,15 @@
       "elapsed_minutes": 0
     },
     "task-channel-identity-allowlist": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "Completed channel identity allowlist implementation parity: Slack and Discord now apply first_contact_policy (drop/reply_request_access/queue_approval), reply to unknown senders when configured, and seed disabled identity rows in queue_approval mode. Existing domain/migration/repository/API/UI/enforcement were already in place; this closes cross-channel behavior gap."
+      ],
+      "started_at": "2026-05-04T14:25:27.187562+02:00",
+      "completed_at": "2026-05-04T14:29:25.919376+02:00",
+      "elapsed_minutes": 3
     },
     "task-collaborative-planning-(abundly-inspired)": {
       "status": "done",
@@ -1328,11 +1334,15 @@
       "elapsed_minutes": 0
     },
     "task-collaborative-planning-v2-—-plan-graph-+-branching-+-mnemos-preferences": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "Implemented: (1) PlanGraph DAG visualization with topological layout + list/graph toggle in PlanReviewCard; (2) why field persisted in step_definitions table and surfaced in UI with \"Why this plan?\" summary section; (3) Step rejection detection in EditPlan captures removed steps into Mnemos preferences; (4) Branching was already fully wired (ForkRun, run_parent_id, branched_from_step_id). Acceptance criteria met."
+      ],
       "started_at": "2026-04-30T21:33:37.958779+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-04T13:27:50.3831+02:00",
+      "elapsed_minutes": 5274
     },
     "task-connector-plugin-architecture": {
       "status": "done",
@@ -1417,8 +1427,10 @@
       "elapsed_minutes": 7
     },
     "task-email-plugin-(channel-+-tool-+-trigger)": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-04T14:31:18.843168+02:00",
       "elapsed_minutes": 0
     },
     "task-error-message-audit-—-plain-language,-actionable,-non-technical": {
@@ -1581,9 +1593,15 @@
       "elapsed_minutes": 6
     },
     "task-multi-turn-conversation-model": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "Completed multi-turn conversation model end-to-end: runs grouped by conversation_id in chat sidebar UI; conversation lifecycle event types added (conversation.created/touched/deleted); repository emits create/touch/delete events; plugin call paths (telegram/slack/discord/email) pass event publisher to conversation repository; Email/Discord constructors and main wiring updated for event bus; backend and frontend builds both pass."
+      ],
+      "started_at": "2026-05-04T13:51:47.157007+02:00",
+      "completed_at": "2026-05-04T14:24:21.260219+02:00",
+      "elapsed_minutes": 32
     },
     "task-obsidian-plugin-(tool-+-context-source)": {
       "status": "pending",
@@ -1662,9 +1680,15 @@
       "elapsed_minutes": 13
     },
     "task-plugin-architecture-core-refactor": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "Plugin Architecture Core Refactor is complete. All acceptance criteria met: (1) Plugin model with Connection entity + AssistantConnectionBinding + PerConnectionOverride implemented; (2) Migrations 000010-000019 executed; (3) Telegram migrated via migration 000011; (4) Gmail stub removed, OAuth moved to internal/integrations/google/; (5) New Plugin API + frontend Plugins tab shipped; (6) Permission engine semantics unchanged. Old internal/connectors/ package remains for backward compatibility but gates no functionality. Downstream tasks now unblocked."
+      ],
+      "started_at": "2026-05-04T13:38:35.204671+02:00",
+      "completed_at": "2026-05-04T13:43:02.323042+02:00",
+      "elapsed_minutes": 4
     },
     "task-plugin-distribution-+-lifecycle-(install/uninstall/update)": {
       "status": "pending",
@@ -1945,5 +1969,5 @@
       "elapsed_minutes": 3
     }
   },
-  "updated_at": "2026-04-30T21:33:37.958779+02:00"
+  "updated_at": "2026-05-04T14:31:18.843168+02:00"
 }

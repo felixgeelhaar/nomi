@@ -24,24 +24,11 @@ import (
 //	  {"name": "Alerts", "assistant_id": "asst-2", "subject_contains": "ALERT"}
 //	]
 
-// TriggerRule is one inbox-watch rule evaluated on each inbound message.
-// Fields are all optional strings (substring match, case-insensitive);
-// leaving them empty means "don't filter on this field". A rule with
-// every filter empty matches everything — useful for a catch-all rule
-// that routes to a different assistant than the channel-role binding.
-type TriggerRule struct {
-	Name            string `json:"name"`
-	AssistantID     string `json:"assistant_id"`
-	FromContains    string `json:"from_contains,omitempty"`
-	SubjectContains string `json:"subject_contains,omitempty"`
-	BodyContains    string `json:"body_contains,omitempty"`
-	Enabled         bool   `json:"enabled"`
-}
-
-// matches reports whether the rule applies to the given message. Case-
-// insensitive substring match on each configured field; empty fields
-// are skipped.
-func (r *TriggerRule) matches(m transport.Message) bool {
+// matchesTriggerRule reports whether the rule applies to the given message.
+// Case-insensitive substring match on each configured field; empty fields
+// are skipped. Defined as a package function (not a method) to avoid
+// an import cycle between domain ←→ email plugins.
+func matchesTriggerRule(r *domain.TriggerRule, m transport.Message) bool {
 	if r == nil || !r.Enabled {
 		return false
 	}
@@ -67,18 +54,18 @@ func containsFold(haystack, needle string) bool {
 // triggerRulesFor parses the connection's config for trigger_rules. Missing
 // or malformed entries are skipped; the plugin never fails the inbound
 // message flow because of a bad rule.
-func triggerRulesFor(cfg map[string]interface{}) []TriggerRule {
+func triggerRulesFor(cfg map[string]interface{}) []domain.TriggerRule {
 	raw, ok := cfg["trigger_rules"].([]interface{})
 	if !ok {
 		return nil
 	}
-	out := make([]TriggerRule, 0, len(raw))
+	out := make([]domain.TriggerRule, 0, len(raw))
 	for _, item := range raw {
 		m, ok := item.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		rule := TriggerRule{
+		rule := domain.TriggerRule{
 			Name:            stringField(m, "name"),
 			AssistantID:     stringField(m, "assistant_id"),
 			FromContains:    stringField(m, "from_contains"),
@@ -109,9 +96,9 @@ func boolField(m map[string]interface{}, key string) bool {
 // firstMatchingRule returns the first enabled rule that matches the
 // message, or nil if none apply. First-match-wins gives users a
 // predictable priority model: put more specific rules before catch-alls.
-func firstMatchingRule(rules []TriggerRule, m transport.Message) *TriggerRule {
+func firstMatchingRule(rules []domain.TriggerRule, m transport.Message) *domain.TriggerRule {
 	for i := range rules {
-		if rules[i].matches(m) {
+		if matchesTriggerRule(&rules[i], m) {
 			return &rules[i]
 		}
 	}
@@ -124,7 +111,7 @@ func firstMatchingRule(rules []TriggerRule, m transport.Message) *TriggerRule {
 // the same assistant still sees one coherent thread. Source is "email"
 // regardless of which path produced it — the channel manifest is the
 // permission ceiling either way.
-func (p *Plugin) handleRuleMatch(ctx context.Context, connID string, rule *TriggerRule, conv *domain.Conversation, m transport.Message) {
+func (p *Plugin) handleRuleMatch(ctx context.Context, connID string, rule *domain.TriggerRule, conv *domain.Conversation, m transport.Message) {
 	goal := m.Subject
 	if goal == "" {
 		goal = "(no subject)"

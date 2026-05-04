@@ -1170,3 +1170,116 @@ Recommendation: **C now, A as a discrete v0.3 feature**. Don't conflate the two 
 Current state in repo (verified): `internal/memory/manager.go` is a thin SQLite-backed key/value store with three scopes (workspace / profile / preferences). Adequate for V1's plan-review wedge. The mnemos narrative is purely positioning today.
 
 ---
+
+## Landing site reposition to match README coding-agent wedge
+
+Source: this session's reposition work, partial follow-through. README has been retargeted to "Claude Code, but local-first" — but `docs/index.html` and `docs/site.css` still carry the older 3-persona narrative ("homelab automation layer", "Beelink / NUC", references to OpenClaw / Hermes / Pi).
+
+Action:
+- Hero H1 + lede on landing realign to the README's wedge: lead promise = "Approve every step before your AI touches your filesystem".
+- Drop Pi (Inflection) row from the diff cards.
+- "Why local-first changes the math" cards: promote the Plan→Approve→Run card to the lead position with more visual weight; demote the rest.
+- Trim the badges row ("Beelink / NUC", "Raspberry Pi 5", "your GPU box") down to one or two — the homelab/NixOS framing is wrong-ICP for the wedge launch.
+- "Built on infrastructure" section: align with the trimmed README "Powered by" — only call out statekit, scout, mnemos (as roadmap), roady. Drop nous / praxis / chronos / olymp callouts (they don't exist in go.mod).
+- Match the README's renamed "Compared to" section in the landing's diff section.
+
+Acceptance: a visitor reading only the landing for 10 seconds names the same wedge a visitor reading only the README does. Both anchor on coding-agent + plan-review + local-first.
+
+---
+
+## Plugins-manager: drop 5s/10s polling, wire to plugin events
+
+Source: FE expert review (P2). `app/src/components/plugins-manager.tsx` lines 791 + 796 hold two `refetchInterval` polls (5s and 10s) during plugin install/update flows. Aggressive polling tax + duplicates the EventProvider's invalidation responsibility.
+
+Action:
+- Identify the EventProvider events that already exist for plugin lifecycle (`plugin.installed`, `plugin.updated`, `plugin.uninstalled`, etc. — verify exact set in `internal/domain/models.go` event constants).
+- Add the missing event types to EventProvider's invalidation map so plugin queries refresh off SSE instead of polling.
+- Drop both refetchIntervals OR keep them at 60s as a safety net (matching the existing pattern in approval-panel.tsx + chat-interface.tsx).
+
+Acceptance: installing a plugin reflects in the Plugins tab within ~100ms (event-driven), without a 5-second wall.
+
+---
+
+## Comparison page (docs/comparison.md) — Goose / Cline / OpenInterpreter / Claude Code / AutoGPT
+
+Source: GTM expert review. README "Compared to" table is short by design; a deeper comparison page is the SEO + decision-path lubricant for users in evaluation mode.
+
+Action:
+- Create `docs/comparison.md` with a feature matrix vs Goose, Cline, OpenInterpreter, Claude Code, AutoGPT, CrewAI.
+- Columns: Local-first, Plan review before execution, Capability-gated tools, Hash-chained audit log, Approval workflow, BYO LLM, Desktop UI, Plugin sandbox, License.
+- Each row gets one paragraph of expanded reasoning below the matrix — no marketing fluff, just factual differentiation.
+- Link from README "Compared to" section ("more detail at docs/comparison.md") and from `docs/index.html`.
+- Match factual claims with current shipped state (Telegram-only connector, single-user-mode today, etc.) — avoid the aspirational pattern that the rest of the site has been cleaning up.
+
+Acceptance: a developer comparing 3-5 agent platforms can read this single page and know whether Nomi fits their constraints. No new claims that aren't verifiable in the repo.
+
+Note: User originally said "skip contribution" referring to community kindling files (CONTRIBUTING.md, ISSUE_TEMPLATE/, CODE_OF_CONDUCT.md). Comparison page is a separate artifact and should be confirmed before doc creation.
+
+---
+
+## Verify and pin lucide-react package version
+
+Source: FE expert review (P1). `app/package.json` declares `"lucide-react": "^1.14.0"`. Real lucide-react is at 0.475+ (zero-major releases). Either the dependency name is right and the version is wrong (Nomi is on a stale fork or a stub), or the name is right and a typo / mistargeted package slipped in.
+
+Action:
+- Inspect the resolved package: `cd app && npm ls lucide-react` to see what's actually installed.
+- Diff the imported icons against the real lucide-react icon set; if any icons we use don't exist in 0.475, switch icons or pin a known-good major.
+- Pin to the latest verified working version (no caret), commit the lockfile.
+- Verify the icon-bearing components still render (chat-interface, App.tsx sidebar, all settings panels).
+
+Acceptance: `npm ls lucide-react` resolves to a current published version of the real package; all icon imports compile; UI looks identical pre/post.
+
+---
+
+## Replace native `<select>` with shadcn Select component for focus-ring parity
+
+Source: FE expert review (P2). `app/src/components/chat-interface.tsx` empty-state assistant picker uses a native `<select>` styled with utility classes; no shadcn Select primitive exists yet in `app/src/components/ui/`.
+
+Action:
+- Add a shadcn Select primitive at `app/src/components/ui/select.tsx` following the same pattern as the existing Tabs / Dialog / Toggle primitives. Use `@radix-ui/react-select` (already a transitive dep via shadcn) for the headless behavior.
+- Replace the native `<select>` in `chat-interface.tsx` (empty state).
+- Audit other native `<select>` usages: assistant-manager, provider-settings, safety-settings, etc. — convert any that should match the Tabs/Dialog focus-ring style.
+
+Acceptance: the empty-state assistant picker has the same focus ring + hover styling as Button / Input / Tabs. Keyboard navigation (arrow keys, Enter, Escape) works as expected.
+
+---
+
+## CHANGELOG.md update for v0.1.4 (or v0.2.0)
+
+Source: housekeeping. Three commits landed on main this session (`ecf33b7`, `e4c442e`, `4b6005e`) — substantial UI/UX improvements + reposition + onboarding fast-path — but no CHANGELOG entry yet.
+
+Action:
+- Decide version bump shape: patch (v0.1.4) preserves semver compatibility, minor (v0.2.0) signals the reposition and quickstart as a deliberate change in product surface.
+- Add a CHANGELOG section grouping the three commits' meaningful changes:
+  - Streaming token UX in chat
+  - Coding-agent reposition (README, "Compared to", "Powered by")
+  - Onboarding quickstart fast-path (Code Reviewer + provider radio)
+  - Approval type-to-confirm for irreversible actions
+  - Hero video a11y (pause toggle, reduced-motion guard)
+  - Final-LLM-conclusion bug fix
+  - Auth cache invalidation on 401
+  - ErrorBoundary stack hidden in prod
+- Reflect the version in README badge, in the "kicker" on landing, and in `cmd/nomi/main.go` (or wherever the version string lives).
+
+Acceptance: `git tag` for the new version, CHANGELOG entry follows the existing format, version string updated in all surfaces consumers see.
+
+---
+
+## Refactor chat-interface.tsx into ChatList / ChatDetail / ChatComposer
+
+Source: FE expert review (P2). `app/src/components/chat-interface.tsx` is ~830 lines covering: chat sidebar list, chat detail view, plan-review surface, approval rendering, streaming bubble, composer, empty state, connect dialog. Single file = hard review surface, hard test surface.
+
+Action:
+- Split into three colocated components in `app/src/components/chat/`:
+  - `ChatList.tsx` — sidebar (search-empty + groupByConversation + ChatSidebarItem).
+  - `ChatDetail.tsx` — header + messages area (PlanReviewCard, ThinkingBlock, streaming bubble, ApprovalCard, response bubble, error state).
+  - `ChatComposer.tsx` — textarea + Send button + starter chips (already extracted to inline JSX).
+- The top-level `ChatInterface` becomes the orchestration shell (queries + mutations + which child to render).
+- Lift shared state (selectedChat, selectedAssistant, newMessage) into ChatInterface; pass via props.
+- Risk: drag points around scroll behavior, focus retention, optimistic mutations. Cover with a Vitest test for each split component before / after.
+
+Acceptance: each new file is < 350 lines. No behavior change observable in the UI. Existing 49 vitest tests still pass.
+
+Lower priority — defer until next time we touch this file for a real change so the refactor doesn't spend a sprint with zero user-visible payoff.
+
+---

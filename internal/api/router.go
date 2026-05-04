@@ -232,6 +232,18 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 			identityGroup.DELETE("/:ident_id", identityServer.DeleteIdentity)
 		}
 
+		// Email trigger rules (task-email-plugin). Nested under
+		// /plugins/:id/connections/:conn_id/trigger-rules so the UI
+		// can manage rules per-connection. Guarded to email plugin only.
+		emailTriggerServer := NewEmailTriggerServer(db.NewEmailTriggerRepository(cfg.DB))
+		emailTriggerGroup := pluginGroup.Group("/:id/connections/:conn_id/trigger-rules")
+		{
+			emailTriggerGroup.GET("", emailTriggerServer.ListEmailTriggerRules)
+			emailTriggerGroup.POST("", emailTriggerServer.CreateEmailTriggerRule)
+			emailTriggerGroup.PUT("/:name", emailTriggerServer.UpdateEmailTriggerRule)
+			emailTriggerGroup.DELETE("/:name", emailTriggerServer.DeleteEmailTriggerRule)
+		}
+
 		assistantBindings := r.Group("/assistants")
 		{
 			assistantBindings.GET("/:id/bindings", pluginServer.ListAssistantBindings)
