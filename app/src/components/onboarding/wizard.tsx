@@ -84,8 +84,20 @@ export function OnboardingWizard({
   onSkip: () => void | Promise<void>;
 }) {
   const [step, setStep] = useState(1);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(templates[0]?.id || "");
-  const [providerChoice, setProviderChoice] = useState<ProviderChoice>("ollama");
+  // Quickstart collapses the 5-step wizard into a single-screen form
+  // (Code Reviewer + a provider + workspace) for the median user, who
+  // wants to run their first task in under two minutes. The full wizard
+  // stays available behind "Show all options" for users who actually
+  // want to pick a different template, configure connectors, etc.
+  const [mode, setMode] = useState<"quickstart" | "wizard">("quickstart");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
+    const reviewer = templates.find((t) => t.template_id === "code-reviewer");
+    return (reviewer ?? templates[0])?.id || "";
+  });
+  // Anthropic is the default fast-path because it ships an API key that
+  // works against current frontier models without a separate model
+  // download. Users without an Anthropic key flip to OpenAI or Ollama.
+  const [providerChoice, setProviderChoice] = useState<ProviderChoice>("anthropic");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
   const [workspacePath, setWorkspacePath] = useState(".");
@@ -313,44 +325,165 @@ export function OnboardingWizard({
               <CardTitle className="text-2xl">Welcome to Nomi</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Get set up in under a minute.</p>
             </div>
-            <Badge variant="outline">Step {step} of 5</Badge>
+            <Badge variant="outline">
+              {mode === "quickstart"
+                ? step === 1
+                  ? "Setup"
+                  : "Verify"
+                : `Step ${step} of 5`}
+            </Badge>
           </div>
-          <ol
-            aria-label="Onboarding progress"
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-3"
-          >
-            {([
-              "Template",
-              "Provider",
-              "Workspace",
-              "Verify",
-              "Connect",
-            ] as const).map((label, idx) => {
-              const n = idx + 1;
-              const state = step === n ? "current" : step > n ? "done" : "upcoming";
-              return (
-                <li
-                  key={label}
-                  aria-current={state === "current" ? "step" : undefined}
-                  className={
-                    state === "current"
-                      ? "font-medium text-foreground"
-                      : state === "done"
-                        ? "text-foreground/70"
-                        : "text-muted-foreground/60"
-                  }
-                >
-                  <span aria-hidden="true" className="mr-1">
-                    {state === "done" ? "✓" : n}.
-                  </span>
-                  {label}
-                </li>
-              );
-            })}
-          </ol>
+          {mode === "wizard" && (
+            <ol
+              aria-label="Onboarding progress"
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-3"
+            >
+              {([
+                "Template",
+                "Provider",
+                "Workspace",
+                "Verify",
+                "Connect",
+              ] as const).map((label, idx) => {
+                const n = idx + 1;
+                const state = step === n ? "current" : step > n ? "done" : "upcoming";
+                return (
+                  <li
+                    key={label}
+                    aria-current={state === "current" ? "step" : undefined}
+                    className={
+                      state === "current"
+                        ? "font-medium text-foreground"
+                        : state === "done"
+                          ? "text-foreground/70"
+                          : "text-muted-foreground/60"
+                    }
+                  >
+                    <span aria-hidden="true" className="mr-1">
+                      {state === "done" ? "✓" : n}.
+                    </span>
+                    {label}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
-          {step === 1 && (
+          {step === 1 && mode === "quickstart" && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h2 className="font-medium">Quick start</h2>
+                <p className="text-sm text-muted-foreground">
+                  Code Reviewer pointed at your current folder. Pick a provider, paste a key, and you're done.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                {[
+                  { id: "anthropic", title: "Anthropic", desc: "Frontier model, no install" },
+                  { id: "openai", title: "OpenAI", desc: "Frontier model, no install" },
+                  { id: "ollama", title: "Ollama (local)", desc: "Free, private, requires install" },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setProviderChoice(opt.id as ProviderChoice)}
+                    className={`text-left rounded-md border p-3 transition-colors hover:bg-muted/40 ${
+                      providerChoice === opt.id ? "border-primary bg-primary/5" : "border-border"
+                    }`}
+                  >
+                    <p className="font-medium text-sm">{opt.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {providerChoice === "anthropic" && (
+                <div className="space-y-1">
+                  <label htmlFor="qs-anthropic-key" className="text-sm font-medium">
+                    Anthropic API key
+                  </label>
+                  <Input
+                    id="qs-anthropic-key"
+                    type="password"
+                    autoComplete="off"
+                    value={anthropicKey}
+                    onChange={(e) => setAnthropicKey(e.target.value)}
+                    placeholder="sk-ant-..."
+                  />
+                </div>
+              )}
+
+              {providerChoice === "openai" && (
+                <div className="space-y-1">
+                  <label htmlFor="qs-openai-key" className="text-sm font-medium">
+                    OpenAI API key
+                  </label>
+                  <Input
+                    id="qs-openai-key"
+                    type="password"
+                    autoComplete="off"
+                    value={openaiKey}
+                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    placeholder="sk-..."
+                  />
+                </div>
+              )}
+
+              {providerChoice === "ollama" && (
+                <div className="rounded-md border p-3 space-y-2">
+                  <p className="text-sm">Ollama runs the model on your machine. Detected on the first try; install at <a href="https://ollama.ai" rel="noopener" className="underline">ollama.ai</a> if you don't have it.</p>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" onClick={runOllamaCheck} disabled={checkingOllama}>
+                      {checkingOllama ? "Checking..." : "Check Ollama"}
+                    </Button>
+                    {ollamaReachable === true && <Badge>Detected</Badge>}
+                    {ollamaReachable === false && <Badge variant="destructive">Not detected</Badge>}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label htmlFor="qs-workspace" className="text-sm font-medium">
+                  Workspace folder
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id="qs-workspace"
+                    value={workspacePath}
+                    onChange={(e) => setWorkspacePath(e.target.value)}
+                    placeholder="/path/to/your/repo"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      const selected = await pickWorkspaceFolder(workspacePath);
+                      if (selected) setWorkspacePath(selected);
+                    }}
+                  >
+                    Pick folder
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Code Reviewer can only read and propose changes inside this folder.
+                </p>
+              </div>
+
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setMode("wizard")}
+                  className="text-xs text-muted-foreground hover:underline"
+                >
+                  Show all options (different template, connectors, …)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && mode === "wizard" && (
             <div className="space-y-3">
               <h2 className="font-medium">What would you like help with?</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -374,6 +507,13 @@ export function OnboardingWizard({
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={() => setMode("quickstart")}
+                className="text-xs text-muted-foreground hover:underline"
+              >
+                ← Back to quick start
+              </button>
             </div>
           )}
 
@@ -536,12 +676,22 @@ export function OnboardingWizard({
               </Button>
 
               <div className="flex gap-2">
-                {step > 1 && step < 4 && (
+                {step > 1 && step < 4 && mode === "wizard" && (
                   <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)} disabled={submitting}>
                     Back
                   </Button>
                 )}
-                {step < 3 && (
+                {step === 1 && mode === "quickstart" && (
+                  <Button
+                    type="button"
+                    onClick={handleFinish}
+                    disabled={submitting || !canContinueProvider || !workspacePath.trim()}
+                    autoFocus
+                  >
+                    {submitting ? "Starting..." : "Start"}
+                  </Button>
+                )}
+                {step < 3 && mode === "wizard" && (
                   <Button
                     type="button"
                     onClick={() => setStep((s) => s + 1)}
@@ -550,7 +700,7 @@ export function OnboardingWizard({
                     Continue
                   </Button>
                 )}
-                {step === 3 && (
+                {step === 3 && mode === "wizard" && (
                   <Button type="button" onClick={handleFinish} disabled={submitting || !workspacePath.trim()}>
                     {submitting ? "Creating..." : "Get started"}
                   </Button>

@@ -1017,5 +1017,24 @@ features:
 
         Recommendation: Promote mnemos integration into the next planning cycle (post-V1). Drop olymp + chronos from "Powered by" narrative until they're actually wired in. Keeping aspirational claims in the README hurts trust more than restraint hurts moat.
       requirements: []
+    - id: mnemos-integration-—-revised-feasibility-assessment
+      title: Mnemos integration — revised feasibility assessment
+      description: |-
+        Source: probe of mnemos@v0.13.0 module on 2026-05-04. Supersedes the 1-2 day estimate in feature #80.
+
+        Finding: mnemos exposes only an HTTP client (`client.Client`) — no embedded Go API. All extraction / storage / query / synthesis logic lives under `internal/` (Go-blocked from external import). The Go SDK assumes a registry process is reachable.
+
+        Integration paths and revised estimates:
+
+        **A. Subprocess (registry-as-sidecar)**: nomid spawns the mnemos registry on a random local port, manages its lifecycle (start, stop, port lock, reconnect), and proxies all memory operations through the HTTP client. Adds ~1-2 weeks: lifecycle wiring, log forwarding, auth token handoff, port-discovery file in app data, graceful-shutdown chain, integration tests, migration from existing nomi.db memory rows. Operational cost: a second process inside the desktop app + mnemos's own SQLite at `~/.local/share/mnemos/mnemos.db` separate from nomi.db.
+
+        **B. API-level rewrite**: replace `internal/memory/manager.go`'s data model (MemoryEntry with scope+content) with mnemos's claim/evidence/relationship shape, talk to a co-running registry, expose new `mnemos.Claim`-flavored types up through the REST API, rebuild the Memory tab around evidence-tracked claims. Estimate: 3-4 weeks. Breaks existing memory rows unless we add a one-shot importer.
+
+        **C. Defer until mnemos ships embedded mode**: keep the current homegrown stub. Drop the "powered by mnemos" narrative until it's real. Revisit when an in-process Go API or `mnemos.NewLocal()` constructor lands upstream.
+
+        Recommendation: **C now, A as a discrete v0.3 feature**. Don't conflate the two — the integration is real product work, not a 1-day code-cleanup item. Budget it as its own multi-week initiative with explicit task decomposition through `roady_smart_decompose` once prioritized.
+
+        Current state in repo (verified): `internal/memory/manager.go` is a thin SQLite-backed key/value store with three scopes (workspace / profile / preferences). Adequate for V1's plan-review wedge. The mnemos narrative is purely positioning today.
+      requirements: []
 constraints: []
 version: 0.1.0
