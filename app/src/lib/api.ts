@@ -26,6 +26,7 @@ import type {
   CreateRunRequest,
   CreateAssistantRequest,
   CreateMemoryRequest,
+  TriggerRule,
   ApiError as ApiErrorType,
 } from "@/types/api";
 import {
@@ -509,6 +510,39 @@ export const pluginsApi = {
         body: JSON.stringify({ allowlist }),
       },
     ),
+
+  // Email trigger rules (task-email-plugin). Nested under
+  // /plugins/:id/connections/:conn_id/trigger-rules.
+  triggerRules: {
+    list: (pluginID: string, connectionID: string) =>
+      fetchApi<{ rules: TriggerRule[] }>(
+        `/plugins/${encodeURIComponent(pluginID)}/connections/${encodeURIComponent(connectionID)}/trigger-rules`,
+      ),
+
+    create: (pluginID: string, connectionID: string, rule: TriggerRule) =>
+      fetchApi<{ rule: TriggerRule }>(
+        `/plugins/${encodeURIComponent(pluginID)}/connections/${encodeURIComponent(connectionID)}/trigger-rules`,
+        {
+          method: "POST",
+          body: JSON.stringify(rule),
+        },
+      ),
+
+    update: (pluginID: string, connectionID: string, name: string, rule: TriggerRule) =>
+      fetchApi<{ rule: TriggerRule }>(
+        `/plugins/${encodeURIComponent(pluginID)}/connections/${encodeURIComponent(connectionID)}/trigger-rules/${encodeURIComponent(name)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(rule),
+        },
+      ),
+
+    delete: (pluginID: string, connectionID: string, name: string) =>
+      fetchApi<{ status: string }>(
+        `/plugins/${encodeURIComponent(pluginID)}/connections/${encodeURIComponent(connectionID)}/trigger-rules/${encodeURIComponent(name)}`,
+        { method: "DELETE" },
+      ),
+  },
 
   getTunnelStatus: () =>
     fetchApi<{ enabled: boolean; public_url: string }>("/webhook-admin/tunnel"),

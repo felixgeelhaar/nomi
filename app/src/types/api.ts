@@ -430,6 +430,15 @@ export interface ConnectorConfig {
   enabled: boolean;
 }
 
+export interface TriggerRule {
+  name: string;
+  assistant_id: string;
+  from_contains?: string;
+  subject_contains?: string;
+  body_contains?: string;
+  enabled: boolean;
+}
+
 export interface ApiError {
   error: string;
 }

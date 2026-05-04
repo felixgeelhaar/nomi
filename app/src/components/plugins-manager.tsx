@@ -25,6 +25,7 @@ import {
   Store,
 } from "lucide-react";
 import { IdentityAllowlist } from "@/components/identity-allowlist";
+import { TriggerRulesEditor } from "@/components/trigger-rules-editor";
 import { InstallPluginDialog } from "@/components/install-plugin-dialog";
 import { MarketplaceBrowserDialog } from "@/components/marketplace-browser-dialog";
 import {
@@ -490,6 +491,9 @@ function ConnectionRow({
         <div className="border-t p-2 space-y-3">
           {hasChannelRole && (
             <IdentityAllowlist pluginID={plugin.manifest.id} connectionID={connection.id} />
+          )}
+          {plugin.manifest.id === EMAIL_PLUGIN_ID && (
+            <TriggerRulesEditor pluginID={plugin.manifest.id} connectionID={connection.id} />
           )}
           {hasWebhookSupport && (
             <div className="space-y-2">
