@@ -204,7 +204,7 @@ func main() {
 	// Email plugin — generic IMAP/SMTP channel. Provider-specific flavors
 	// (Gmail/Outlook OAuth) land as their own plugins on top of this
 	// transport layer.
-	emailPlugin := emailplugin.NewPlugin(rt, connectionRepo, bindingRepo, conversationRepo, identityRepo, secretStore)
+	emailPlugin := emailplugin.NewPlugin(rt, connectionRepo, bindingRepo, conversationRepo, identityRepo, secretStore, eventBus)
 	if err := pluginRegistry.Register(emailPlugin); err != nil {
 		log.Fatalf("Failed to register Email plugin: %v", err)
 	}
@@ -223,7 +223,7 @@ func main() {
 	// Discord plugin — Gateway WebSocket. User creates a Discord
 	// application, pastes the bot token, invites the bot to servers they
 	// want it in.
-	discordPlugin := discordplugin.NewPlugin(rt, connectionRepo, bindingRepo, conversationRepo, identityRepo, secretStore)
+	discordPlugin := discordplugin.NewPlugin(rt, connectionRepo, bindingRepo, conversationRepo, identityRepo, secretStore, eventBus)
 	if err := pluginRegistry.Register(discordPlugin); err != nil {
 		log.Fatalf("Failed to register Discord plugin: %v", err)
 	}

@@ -1,11 +1,13 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/felixgeelhaar/nomi/internal/domain"
+	"github.com/felixgeelhaar/nomi/internal/events"
 )
 
 // ConversationRepository handles CRUD + lookup for plugin_conversations.
@@ -27,6 +29,7 @@ func NewConversationRepository(db *DB) *ConversationRepository {
 // we mint a fresh Conversation and resolve the target assistant.
 func (r *ConversationRepository) FindOrCreate(
 	pluginID, connectionID, externalConversationID, assistantID string,
+	eventBus events.EventPublisher,
 ) (*domain.Conversation, bool, error) {
 	existing, err := r.FindByExternal(pluginID, connectionID, externalConversationID)
 	if err != nil {
@@ -44,7 +47,7 @@ func (r *ConversationRepository) FindOrCreate(
 		CreatedAt:              time.Now().UTC(),
 		UpdatedAt:              time.Now().UTC(),
 	}
-	if err := r.Create(conv); err != nil {
+	if err := r.Create(conv, eventBus); err != nil {
 		return nil, false, err
 	}
 	return conv, true, nil
@@ -52,7 +55,7 @@ func (r *ConversationRepository) FindOrCreate(
 
 // Create inserts a new conversation. FindOrCreate wraps this; direct
 // callers would be unusual.
-func (r *ConversationRepository) Create(c *domain.Conversation) error {
+func (r *ConversationRepository) Create(c *domain.Conversation, eventBus events.EventPublisher) error {
 	_, err := r.db.Exec(
 		`INSERT INTO plugin_conversations
 		   (id, plugin_id, connection_id, external_conversation_id, identity_id, assistant_id, created_at, updated_at)
@@ -62,6 +65,15 @@ func (r *ConversationRepository) Create(c *domain.Conversation) error {
 	)
 	if err != nil {
 		return fmt.Errorf("insert plugin_conversation: %w", err)
+	}
+	if eventBus != nil {
+		_, _ = eventBus.Publish(context.Background(), domain.EventConversationCreated, c.ID, nil, map[string]interface{}{
+			"conversation_id":        c.ID,
+			"plugin_id":              c.PluginID,
+			"connection_id":          c.ConnectionID,
+			"external_conversation_id": c.ExternalConversationID,
+			"assistant_id":           c.AssistantID,
+		})
 	}
 	return nil
 }
@@ -133,18 +145,28 @@ func (r *ConversationRepository) ListByConnection(connectionID string, limit int
 
 // Touch advances the conversation's updated_at timestamp. Called after
 // every run completes so the Chats tab can sort by most-recent activity.
-func (r *ConversationRepository) Touch(id string) error {
+func (r *ConversationRepository) Touch(id string, eventBus events.EventPublisher) error {
 	_, err := r.db.Exec(
 		`UPDATE plugin_conversations SET updated_at = ? WHERE id = ?`,
 		time.Now().UTC(), id,
 	)
+	if err == nil && eventBus != nil {
+		_, _ = eventBus.Publish(context.Background(), domain.EventConversationTouched, id, nil, map[string]interface{}{
+			"conversation_id": id,
+		})
+	}
 	return err
 }
 
 // Delete removes a conversation. Runs referencing this conversation
 // get their conversation_id nulled via ON DELETE SET NULL.
-func (r *ConversationRepository) Delete(id string) error {
+func (r *ConversationRepository) Delete(id string, eventBus events.EventPublisher) error {
 	_, err := r.db.Exec(`DELETE FROM plugin_conversations WHERE id = ?`, id)
+	if err == nil && eventBus != nil {
+		_, _ = eventBus.Publish(context.Background(), domain.EventConversationDeleted, id, nil, map[string]interface{}{
+			"conversation_id": id,
+		})
+	}
 	return err
 }
 

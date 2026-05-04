@@ -78,7 +78,7 @@ func (s *ConversationServer) DeleteConversation(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
 		return
 	}
-	if err := s.convs.Delete(id); err != nil {
+	if err := s.convs.Delete(id, nil); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

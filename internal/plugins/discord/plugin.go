@@ -16,6 +16,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/felixgeelhaar/nomi/internal/domain"
+	"github.com/felixgeelhaar/nomi/internal/events"
 	"github.com/felixgeelhaar/nomi/internal/plugins"
 	"github.com/felixgeelhaar/nomi/internal/runtime"
 	"github.com/felixgeelhaar/nomi/internal/secrets"
@@ -34,6 +35,7 @@ type Plugin struct {
 	conversations *db.ConversationRepository
 	identities    *db.ChannelIdentityRepository
 	secrets       secrets.Store
+	eventBus      *events.EventBus
 
 	mu            sync.RWMutex
 	running       bool
@@ -48,7 +50,8 @@ func NewPlugin(
 	binds *db.AssistantBindingRepository,
 	convs *db.ConversationRepository,
 	idents *db.ChannelIdentityRepository,
-	secretStore secrets.Store,
+	secrets secrets.Store,
+	eventBus *events.EventBus,
 ) *Plugin {
 	return &Plugin{
 		rt:            rt,
@@ -56,9 +59,8 @@ func NewPlugin(
 		bindings:      binds,
 		conversations: convs,
 		identities:    idents,
-		secrets:       secretStore,
-		sessions:      map[string]*discordgo.Session{},
-		healthPerConn: map[string]*plugins.ConnectionHealth{},
+		secrets:       secrets,
+		eventBus:      eventBus,
 	}
 }
 
@@ -262,10 +264,10 @@ func (p *Plugin) onMessage(ctx context.Context, connID string, s *discordgo.Sess
 
 	var conversationID string
 	if p.conversations != nil {
-		conv, _, err := p.conversations.FindOrCreate(PluginID, connID, externalID, assistantID)
+		conv, _, err := p.conversations.FindOrCreate(PluginID, connID, externalID, assistantID, p.eventBus)
 		if err == nil {
 			conversationID = conv.ID
-			_ = p.conversations.Touch(conv.ID)
+			_ = p.conversations.Touch(conv.ID, p.eventBus)
 		}
 	}
 

@@ -45,7 +45,7 @@ type Plugin struct {
 	identities    *db.ChannelIdentityRepository
 	runs          *db.RunRepository
 	approvals     *permissions.Manager
-	eventBus      events.EventSubscriber
+	eventBus      *events.EventBus
 	secrets       secrets.Store
 
 	// Overridable for tests; production code always talks to Telegram's
@@ -83,7 +83,7 @@ func NewPlugin(
 	idents *db.ChannelIdentityRepository,
 	runs *db.RunRepository,
 	approvals *permissions.Manager,
-	eventBus events.EventSubscriber,
+	eventBus *events.EventBus,
 	secretStore secrets.Store,
 ) *Plugin {
 	return &Plugin{
@@ -740,13 +740,13 @@ func (p *Plugin) handleMessage(ctx context.Context, connID, message, chatID, sen
 	// persistent conversation regardless of how many runs flow through it.
 	var conversationID string
 	if p.conversations != nil {
-		conv, _, err := p.conversations.FindOrCreate(PluginID, connID, chatID, assistantID)
+		conv, _, err := p.conversations.FindOrCreate(PluginID, connID, chatID, assistantID, p.eventBus)
 		if err != nil {
 			log.Printf("[telegram plugin] find/create conversation on %s (chat %s): %v", connID, chatID, err)
 			// Fall through: run still creates, just without conversation linkage.
 		} else {
 			conversationID = conv.ID
-			_ = p.conversations.Touch(conv.ID)
+			_ = p.conversations.Touch(conv.ID, p.eventBus)
 		}
 	}
 

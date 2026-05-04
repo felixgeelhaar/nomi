@@ -43,7 +43,7 @@ type Plugin struct {
 	identities    *db.ChannelIdentityRepository
 	runs          *db.RunRepository
 	approvals     *permissions.Manager
-	eventBus      events.EventSubscriber
+	eventBus      *events.EventBus
 	secrets       secrets.Store
 
 	mu            sync.RWMutex
@@ -78,7 +78,7 @@ func NewPlugin(
 	idents *db.ChannelIdentityRepository,
 	runs *db.RunRepository,
 	approvals *permissions.Manager,
-	eventBus events.EventSubscriber,
+	eventBus *events.EventBus,
 	secretStore secrets.Store,
 ) *Plugin {
 	return &Plugin{
@@ -547,10 +547,10 @@ func (p *Plugin) handleMessage(ctx context.Context, connID string, client *slack
 
 	var conversationID string
 	if p.conversations != nil {
-		conv, _, err := p.conversations.FindOrCreate(PluginID, connID, externalID, assistantID)
+		conv, _, err := p.conversations.FindOrCreate(PluginID, connID, externalID, assistantID, p.eventBus)
 		if err == nil {
 			conversationID = conv.ID
-			_ = p.conversations.Touch(conv.ID)
+			_ = p.conversations.Touch(conv.ID, p.eventBus)
 		}
 	}
 

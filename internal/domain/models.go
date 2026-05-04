@@ -305,6 +305,10 @@ const (
 	EventRunCancelled      EventType = "run.cancelled"
 	EventRunCompleted      EventType = "run.completed"
 	EventRunFailed         EventType = "run.failed"
+	// Conversation events (ADR 0001 §8).
+	EventConversationCreated EventType = "conversation.created"
+	EventConversationTouched EventType = "conversation.touched"
+	EventConversationDeleted  EventType = "conversation.deleted"
 	// Plugin lifecycle events (lifecycle-10). Payload carries
 	// plugin_id, from_version, to_version (omitted for the available
 	// case when not yet installed).

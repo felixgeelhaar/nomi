@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/felixgeelhaar/nomi/internal/domain"
+	"github.com/felixgeelhaar/nomi/internal/events"
 	"github.com/felixgeelhaar/nomi/internal/plugins"
 	"github.com/felixgeelhaar/nomi/internal/plugins/email/transport"
 	"github.com/felixgeelhaar/nomi/internal/runtime"
@@ -41,6 +42,7 @@ type Plugin struct {
 	conversations *db.ConversationRepository
 	identities    *db.ChannelIdentityRepository
 	secrets       secrets.Store
+	eventBus      *events.EventBus
 
 	mu            sync.RWMutex
 	running       bool
@@ -57,7 +59,8 @@ func NewPlugin(
 	binds *db.AssistantBindingRepository,
 	convs *db.ConversationRepository,
 	idents *db.ChannelIdentityRepository,
-	secretStore secrets.Store,
+	secrets secrets.Store,
+	eventBus *events.EventBus,
 ) *Plugin {
 	return &Plugin{
 		rt:            rt,
@@ -65,10 +68,8 @@ func NewPlugin(
 		bindings:      binds,
 		conversations: convs,
 		identities:    idents,
-		secrets:       secretStore,
-		cancelPerConn: map[string]context.CancelFunc{},
-		uidWatermark:  map[string]uint32{},
-		healthPerConn: map[string]*plugins.ConnectionHealth{},
+		secrets:       secrets,
+		eventBus:      eventBus,
 	}
 }
 
@@ -373,10 +374,10 @@ func (p *Plugin) handleMessage(ctx context.Context, connID string, cfg transport
 			threadKey := resolveThreadKey(m)
 			var conv *domain.Conversation
 			if p.conversations != nil && threadKey != "" {
-				c, _, err := p.conversations.FindOrCreate(PluginID, connID, threadKey, rule.AssistantID)
+				c, _, err := p.conversations.FindOrCreate(PluginID, connID, threadKey, rule.AssistantID, p.eventBus)
 				if err == nil {
 					conv = c
-					_ = p.conversations.Touch(c.ID)
+					_ = p.conversations.Touch(c.ID, p.eventBus)
 				}
 			}
 			p.handleRuleMatch(ctx, connID, rule, conv, m)
@@ -412,10 +413,10 @@ func (p *Plugin) handleMessage(ctx context.Context, connID string, cfg transport
 
 	var conversationID string
 	if p.conversations != nil && threadKey != "" {
-		conv, _, err := p.conversations.FindOrCreate(PluginID, connID, threadKey, assistantID)
+		conv, _, err := p.conversations.FindOrCreate(PluginID, connID, threadKey, assistantID, p.eventBus)
 		if err == nil {
 			conversationID = conv.ID
-			_ = p.conversations.Touch(conv.ID)
+			_ = p.conversations.Touch(conv.ID, p.eventBus)
 		}
 	}
 

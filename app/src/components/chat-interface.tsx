@@ -251,6 +251,63 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
     }));
   }, [runs, assistants]);
 
+  // Group chats by conversationID. Runs with the same conversationID belong
+  // to the same multi-turn thread. Ungrouped runs (no conversationID) stand alone.
+  const groupedChats: (ChatItem | { __isGroup: true; id: string; conversationID: string; runs: ChatItem[] })[] = useMemo(() => {
+    const groups = new Map<string, ChatItem[]>();
+    const ungrouped: ChatItem[] = [];
+
+    for (const chat of chats) {
+      if (chat.conversationID) {
+        const list = groups.get(chat.conversationID) ?? [];
+        list.push(chat);
+        groups.set(chat.conversationID, list);
+      } else {
+        ungrouped.push(chat);
+      }
+    }
+
+    const result: (ChatItem | { __isGroup: true; id: string; conversationID: string; runs: ChatItem[] })[] = [];
+
+    // Sort groups by most recent run
+    const sortedGroups = [...groups.entries()].sort((a, b) => {
+      const aLatest = Math.max(...a[1].map((r) => new Date(r.createdAt).getTime()));
+      const bLatest = Math.max(...b[1].map((r) => new Date(r.createdAt).getTime()));
+      return bLatest - aLatest;
+    });
+
+    for (const [convID, runs] of sortedGroups) {
+      // Sort runs within group by creation time (oldest first)
+      runs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      result.push({
+        __isGroup: true,
+        id: `group-${convID}`,
+        conversationID: convID,
+        runs,
+      });
+    }
+
+    // Add ungrouped runs
+    result.push(...ungrouped.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+
+    return result;
+  }, [chats]);
+
+  // Track which conversation groups are expanded
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (convID: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(convID)) {
+        next.delete(convID);
+      } else {
+        next.add(convID);
+      }
+      return next;
+    });
+  };
+
   // Seed selectedAssistant once assistants load.
   useEffect(() => {
     if (!selectedAssistant && assistants.length > 0) {
@@ -536,15 +593,57 @@ export function ChatInterface({ resetToken = 0 }: { resetToken?: number }) {
               No chats yet. Start a new conversation!
             </div>
           ) : (
-            chats.map((chat) => (
-              <ChatSidebarItem
-                key={chat.id}
-                chat={chat}
-                active={selectedChat === chat.id}
-                onClick={() => setSelectedChat(chat.id)}
-                onDelete={() => handleDeleteChat(chat.id)}
-              />
-            ))
+            groupedChats.map((item) => {
+              if ("__isGroup" in item) {
+                const group = item as { __isGroup: true; id: string; conversationID: string; runs: ChatItem[] };
+                const isExpanded = expandedGroups.has(group.conversationID);
+                const latestRun = group.runs[group.runs.length - 1];
+                const groupTitle = latestRun?.title || "Conversation";
+                return (
+                  <div key={group.id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.conversationID)}
+                      className="w-full text-left px-3 py-2 flex items-center gap-2 rounded-md hover:bg-muted/50 transition-colors"
+                      aria-expanded={isExpanded}
+                      aria-label={`Conversation: ${groupTitle}`}
+                    >
+                      <div className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}>
+                        ▶
+                      </div>
+                      <span className="text-sm font-medium truncate flex-1">
+                        {groupTitle}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {group.runs.length} run{group.runs.length !== 1 ? "s" : ""}
+                      </span>
+                    </button>
+                    {isExpanded && (
+                      <div className="ml-4 space-y-1 mt-1">
+                        {group.runs.map((run) => (
+                          <ChatSidebarItem
+                            key={run.id}
+                            chat={run}
+                            active={selectedChat === run.id}
+                            onClick={() => setSelectedChat(run.id)}
+                            onDelete={() => handleDeleteChat(run.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <ChatSidebarItem
+                  key={item.id}
+                  chat={item}
+                  active={selectedChat === item.id}
+                  onClick={() => setSelectedChat(item.id)}
+                  onDelete={() => handleDeleteChat(item.id)}
+                />
+              );
+            })
           )}
         </div>
       </div>
