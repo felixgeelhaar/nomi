@@ -28,7 +28,7 @@ type CreateRunRequest struct {
 func (s *Server) CreateRun(c *gin.Context) {
 	var req CreateRunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondValidationError(c, err.Error())
 		return
 	}
 
@@ -45,13 +45,13 @@ func (s *Server) CreateRun(c *gin.Context) {
 func (s *Server) GetRun(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
 	run, steps, plan, err := s.runtime.GetRun(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		respondNotFound(c, err.Error())
 		return
 	}
 
@@ -66,7 +66,7 @@ func (s *Server) GetRun(c *gin.Context) {
 func (s *Server) ListRuns(c *gin.Context) {
 	runs, err := s.runtime.ListRuns()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to list runs", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"runs": runs})
@@ -76,7 +76,7 @@ func (s *Server) ListRuns(c *gin.Context) {
 func (s *Server) ApproveRun(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
@@ -92,13 +92,13 @@ func (s *Server) ApproveRun(c *gin.Context) {
 func (s *Server) GetRunApprovals(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
 	approvals, err := s.runtime.GetRunApprovals(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to list run approvals", err)
 		return
 	}
 
@@ -109,7 +109,7 @@ func (s *Server) GetRunApprovals(c *gin.Context) {
 func (s *Server) RetryRun(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
@@ -125,7 +125,7 @@ func (s *Server) RetryRun(c *gin.Context) {
 func (s *Server) PauseRun(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
@@ -141,7 +141,7 @@ func (s *Server) PauseRun(c *gin.Context) {
 func (s *Server) ResumeRun(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
@@ -157,7 +157,7 @@ func (s *Server) ResumeRun(c *gin.Context) {
 func (s *Server) CancelRun(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
@@ -173,7 +173,7 @@ func (s *Server) CancelRun(c *gin.Context) {
 func (s *Server) ApprovePlan(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
@@ -201,13 +201,13 @@ type EditPlanRequest struct {
 func (s *Server) EditPlan(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
 	var req EditPlanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondValidationError(c, err.Error())
 		return
 	}
 
@@ -243,13 +243,13 @@ type ForkRunRequest struct {
 func (s *Server) ForkRun(c *gin.Context) {
 	parentID := c.Param("id")
 	if parentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
 	var req ForkRunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondValidationError(c, err.Error())
 		return
 	}
 
@@ -266,12 +266,12 @@ func (s *Server) ForkRun(c *gin.Context) {
 func (s *Server) DeleteRun(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 
 	if err := s.runtime.DeleteRun(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to delete run", err)
 		return
 	}
 

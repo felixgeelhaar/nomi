@@ -21,7 +21,7 @@ func NewRemoteTemplateServer(repo *db.RemoteTemplateRepository) *RemoteTemplateS
 func (s *RemoteTemplateServer) ListRemoteTemplates(c *gin.Context) {
 	templates, err := s.repo.ListAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list remote templates"})
+		respondInternal(c, "failed to list remote templates", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"templates": templates})
@@ -49,11 +49,11 @@ func (s *RemoteTemplateServer) InstallRemoteTemplate(c *gin.Context) {
 		RecommendedBindings string `json:"recommended_bindings"` // JSON array
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		respondValidationError(c, "invalid request: "+err.Error())
 		return
 	}
 	if req.ID == "" || req.SourceURL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id and source_url are required"})
+		respondValidationError(c, "id and source_url are required")
 		return
 	}
 
@@ -82,7 +82,7 @@ func (s *RemoteTemplateServer) InstallRemoteTemplate(c *gin.Context) {
 	}
 
 	if err := s.repo.Install(rt, assistantID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to install template"})
+		respondInternal(c, "failed to install template", err)
 		return
 	}
 
