@@ -1,4 +1,4 @@
-.PHONY: all build dev test clean app-dev app-build migrate sidecar
+.PHONY: all build dev test clean app-dev app-build migrate sidecar roady-guard
 
 # Build metadata injected into internal/buildinfo via -ldflags. CI overrides
 # VERSION with the release tag (e.g. VERSION=v0.2.0 make build); local builds
@@ -122,3 +122,7 @@ wasm-echo-stdgo:
 # Run the WASM runtime comparison benchmarks.
 wasm-bench:
 	@go test -bench=. -benchmem -run=^$$ -count=3 ./internal/plugins/wasmhost/
+
+# Validate Roady state/plan task-ID governance.
+roady-guard:
+	@python3 scripts/roady_state_guard.py

@@ -1,6 +1,6 @@
 {
   "project_id": "Nomi",
-  "version": 422,
+  "version": 436,
   "task_states": {
     "approval-flow": {
       "status": "done",
@@ -15,7 +15,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Implemented builder validation + API guard for capability ceiling and policy coherence: (1) Added real-time client-side validation in assistant-manager.tsx that computes ceiling violations as user edits policy rules, showing inline amber errors on each rule row ('Tick the {Family} box in Declared capabilities to allow this rule to take effect'); (2) Highlighted violated capability checkboxes with amber ring/bg; (3) Added violation summary text at top of capabilities section; (4) Blocked form submission when violations exist (scrolls to capabilities section); (5) Disabled submit button with tooltip; (6) API-level guard already existed in CreateAssistant/UpdateAssistant via ValidatePolicyAgainstCeiling \u2014 confirmed still working. TypeScript compiles clean. All 31 Go packages pass."
+        "Implemented builder validation + API guard for capability ceiling and policy coherence: (1) Added real-time client-side validation in assistant-manager.tsx that computes ceiling violations as user edits policy rules, showing inline amber errors on each rule row ('Tick the {Family} box in Declared capabilities to allow this rule to take effect'); (2) Highlighted violated capability checkboxes with amber ring/bg; (3) Added violation summary text at top of capabilities section; (4) Blocked form submission when violations exist (scrolls to capabilities section); (5) Disabled submit button with tooltip; (6) API-level guard already existed in CreateAssistant/UpdateAssistant via ValidatePolicyAgainstCeiling — confirmed still working. TypeScript compiles clean. All 31 Go packages pass."
       ],
       "started_at": "2026-04-29T21:55:48.913406+02:00",
       "completed_at": "2026-04-29T22:01:19.197489+02:00",
@@ -37,7 +37,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Driver decision: reuse felixgeelhaar/scout (which wraps Playwright internally) rather than embed chromedp/playwright-go directly. Scout already solves browser lifecycle, isolated profiles, semantic observation, network capture, and accessibility \u2014 duplicating in nomid would be ceremony with no benefit. Trade-off accepted: external scout binary dependency, installable via `brew install scout`. Implementation in internal/plugins/browser/mcp.go (JSON-RPC 2.0 over stdio MCP client: subprocess management, initialize handshake, concurrent CallTool with response routing via per-id channels, 16 MiB read buffer for screenshot bytes, graceful 3s shutdown then SIGKILL). Sandbox model: one Scout subprocess per Connection so each assistant gets an isolated browser profile."
+        "Driver decision: reuse felixgeelhaar/scout (which wraps Playwright internally) rather than embed chromedp/playwright-go directly. Scout already solves browser lifecycle, isolated profiles, semantic observation, network capture, and accessibility — duplicating in nomid would be ceremony with no benefit. Trade-off accepted: external scout binary dependency, installable via `brew install scout`. Implementation in internal/plugins/browser/mcp.go (JSON-RPC 2.0 over stdio MCP client: subprocess management, initialize handshake, concurrent CallTool with response routing via per-id channels, 16 MiB read buffer for screenshot bytes, graceful 3s shutdown then SIGKILL). Sandbox model: one Scout subprocess per Connection so each assistant gets an isolated browser profile."
       ],
       "started_at": "2026-04-26T14:39:31.736275+02:00",
       "completed_at": "2026-04-26T14:46:25.534683+02:00",
@@ -59,7 +59,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Per-domain gating shipped via per-Connection allowed_hosts allowlist (internal/plugins/browser/gate.go). Wildcard matching mirrors the existing wasmhost matcher (exact, *.suffix with leading-dot anchor that rejects \"slack.com.attacker.com\" impersonation, and explicit \"*\" escape hatch). Empty allowed_hosts denies all navigation \u2014 never silently allowed. browser.navigate is the gate point; subsequent click/type/extract/etc. trust the loaded page (matches user mental model: \"I told it to use example.com; clicking buttons there is normal\"). Connection config field added to manifest with required=true and a clear description. Tool dispatcher (tool.go) checks gate before clientFor so a deny path never even spawns Scout for the call. Crucial test: TestNavigate_DeniedByConnectionAllowlist asserts the MCP invoker has zero calls when the gate fires (a leaky gate would defeat the security purpose). 11 gate tests + existing 14 plugin tests, all green. Whole 31-package suite green.\n\nDEFERRED to a separate follow-up: (a) session/tab scoping by (assistant_id, session_id) using Scout's tab APIs, (b) idle-timeout cleanup of per-session tabs, (c) integration with the runtime approval flow for \"confirm\" mode (today the gate is binary allow/deny based on the connection allowlist; runtime-level approval gating per URL would route through ApprovalManager.RequestApproval but that requires plumbing the manager into the plugin and changing tool execution to be approval-aware, which is a larger refactor that warrants its own task). The current allowlist model is the security-meaningful piece; the approval flow is the UX-richer piece."
+        "Per-domain gating shipped via per-Connection allowed_hosts allowlist (internal/plugins/browser/gate.go). Wildcard matching mirrors the existing wasmhost matcher (exact, *.suffix with leading-dot anchor that rejects \"slack.com.attacker.com\" impersonation, and explicit \"*\" escape hatch). Empty allowed_hosts denies all navigation — never silently allowed. browser.navigate is the gate point; subsequent click/type/extract/etc. trust the loaded page (matches user mental model: \"I told it to use example.com; clicking buttons there is normal\"). Connection config field added to manifest with required=true and a clear description. Tool dispatcher (tool.go) checks gate before clientFor so a deny path never even spawns Scout for the call. Crucial test: TestNavigate_DeniedByConnectionAllowlist asserts the MCP invoker has zero calls when the gate fires (a leaky gate would defeat the security purpose). 11 gate tests + existing 14 plugin tests, all green. Whole 31-package suite green.\n\nDEFERRED to a separate follow-up: (a) session/tab scoping by (assistant_id, session_id) using Scout's tab APIs, (b) idle-timeout cleanup of per-session tabs, (c) integration with the runtime approval flow for \"confirm\" mode (today the gate is binary allow/deny based on the connection allowlist; runtime-level approval gating per URL would route through ApprovalManager.RequestApproval but that requires plumbing the manager into the plugin and changing tool execution to be approval-aware, which is a larger refactor that warrants its own task). The current allowlist model is the security-meaningful piece; the approval flow is the UX-richer piece."
       ],
       "started_at": "2026-04-26T14:57:22.228688+02:00",
       "completed_at": "2026-04-26T15:01:36.329926+02:00",
@@ -81,7 +81,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Tools landed in the same calendar-01 commit: calendar.list_upcoming, calendar.create_event, calendar.update_event, calendar.delete_event, calendar.find_free_slots. Each enforces the role=tool binding hard wall via plugins.ConnectionNotBoundError, resolves the provider through providerFor(conn), and normalizes Google Calendar wire shape to the plugin's Event struct. RFC3339 time parsing with sensible defaults (from=now, to=from+7d, duration=30min); limit defaults to 25. deleteEvent is idempotent \u2014 404 from Google is treated as success."
+        "Tools landed in the same calendar-01 commit: calendar.list_upcoming, calendar.create_event, calendar.update_event, calendar.delete_event, calendar.find_free_slots. Each enforces the role=tool binding hard wall via plugins.ConnectionNotBoundError, resolves the provider through providerFor(conn), and normalizes Google Calendar wire shape to the plugin's Event struct. RFC3339 time parsing with sensible defaults (from=now, to=from+7d, duration=30min); limit defaults to 25. deleteEvent is idempotent — 404 from Google is treated as success."
       ],
       "started_at": "2026-04-24T23:37:06.1663+02:00",
       "completed_at": "2026-04-24T23:37:10.782063+02:00",
@@ -92,7 +92,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/calendar/trigger.go \u2014 three trigger kinds (calendar.pre_meeting, calendar.event_created, calendar.event_cancelled) backed by Provider.ListUpcoming polling. Push notifications deferred (Google Calendar's watch API needs an externally-reachable webhook URL \u2014 out of scope for v1's local-first install). One Trigger per (connection \u00d7 rule). Per-rule state in memory: seenEventIDs (snapshot from previous poll, drives created/cancelled deltas), firedPreMeeting (dedupe set so a 5-min lead with 60s polls doesn't fire 5 times). First poll baseline suppresses event_created firings (existing 24h calendar would otherwise retro-fire on daemon restart); pre_meeting still fires on baseline so a meeting starting in 4 minutes doesn't have to wait an extra interval. event_cancelled excludes events that simply rolled past their start time. SetProviderOverride seam added to the plugin so triggers + tools can be tested against a stub. Manifest gained 3 TriggerContributions with example rule shapes. 12 trigger tests covering manifest, Triggers() materialization (one per rule, malformed/unknown/missing-lead rejection), pollOnce semantics (baseline suppression, event_created on second poll, event_cancelled, elapsed-event exclusion, pre_meeting window match, far-future no-fire, dedupe within window), Start/Stop idempotency, rule parsing, poll interval override. Whole 30-package suite green."
+        "internal/plugins/calendar/trigger.go — three trigger kinds (calendar.pre_meeting, calendar.event_created, calendar.event_cancelled) backed by Provider.ListUpcoming polling. Push notifications deferred (Google Calendar's watch API needs an externally-reachable webhook URL — out of scope for v1's local-first install). One Trigger per (connection × rule). Per-rule state in memory: seenEventIDs (snapshot from previous poll, drives created/cancelled deltas), firedPreMeeting (dedupe set so a 5-min lead with 60s polls doesn't fire 5 times). First poll baseline suppresses event_created firings (existing 24h calendar would otherwise retro-fire on daemon restart); pre_meeting still fires on baseline so a meeting starting in 4 minutes doesn't have to wait an extra interval. event_cancelled excludes events that simply rolled past their start time. SetProviderOverride seam added to the plugin so triggers + tools can be tested against a stub. Manifest gained 3 TriggerContributions with example rule shapes. 12 trigger tests covering manifest, Triggers() materialization (one per rule, malformed/unknown/missing-lead rejection), pollOnce semantics (baseline suppression, event_created on second poll, event_cancelled, elapsed-event exclusion, pre_meeting window match, far-future no-fire, dedupe within window), Start/Stop idempotency, rule parsing, poll interval override. Whole 30-package suite green."
       ],
       "started_at": "2026-04-26T14:20:13.276746+02:00",
       "completed_at": "2026-04-26T14:25:00.879489+02:00",
@@ -167,7 +167,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Migration 000012_conversations (up+down) adds plugin_conversations with (plugin_id, connection_id, external_conversation_id) unique index, ON DELETE CASCADE from connection \u2192 conversation, ON DELETE SET NULL from conversation \u2192 run. Adds nullable runs.conversation_id column. domain.Conversation defined; Run gains ConversationID *string. RunRepository Create/GetByID/Update/scanRuns all thread conversation_id through. ConversationRepository provides FindOrCreate (idempotent by natural key), Create/GetByID/FindByExternal, ListByAssistant/ListByConnection (ordered by updated_at DESC), Touch for activity timestamping, Delete. 3 tests: FindOrCreate idempotency, ListByAssistant ordering after Touch, Run round-trip with conversation_id. Full test suite green + bridge write in api/connectors.go for legacy UI dual-writes into plugin_connections so new Telegram users are unblocked."
+        "Migration 000012_conversations (up+down) adds plugin_conversations with (plugin_id, connection_id, external_conversation_id) unique index, ON DELETE CASCADE from connection → conversation, ON DELETE SET NULL from conversation → run. Adds nullable runs.conversation_id column. domain.Conversation defined; Run gains ConversationID *string. RunRepository Create/GetByID/Update/scanRuns all thread conversation_id through. ConversationRepository provides FindOrCreate (idempotent by natural key), Create/GetByID/FindByExternal, ListByAssistant/ListByConnection (ordered by updated_at DESC), Touch for activity timestamping, Delete. 3 tests: FindOrCreate idempotency, ListByAssistant ordering after Touch, Run round-trip with conversation_id. Full test suite green + bridge write in api/connectors.go for legacy UI dual-writes into plugin_connections so new Telegram users are unblocked."
       ],
       "started_at": "2026-04-24T22:20:24.183229+02:00",
       "completed_at": "2026-04-24T22:23:20.627239+02:00",
@@ -178,7 +178,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Runtime.CreateRunInConversation threads conversation_id through run creation. Telegram plugin's handleMessage now finds-or-creates a Conversation per (bot, chat_id) pair and routes the Run through it; the UI will see multi-message exchanges as one thread. REST endpoints added in internal/api/conversations.go: GET /conversations?assistant_id=\u2026 or ?connection_id=\u2026, GET /conversations/:id, DELETE /conversations/:id (linked runs survive with conversation_id set to NULL). Plugin's Conversation repo is optional at construction \u2014 passing nil falls back to legacy per-run behavior. Full test suite green across 13 packages."
+        "Runtime.CreateRunInConversation threads conversation_id through run creation. Telegram plugin's handleMessage now finds-or-creates a Conversation per (bot, chat_id) pair and routes the Run through it; the UI will see multi-message exchanges as one thread. REST endpoints added in internal/api/conversations.go: GET /conversations?assistant_id=… or ?connection_id=…, GET /conversations/:id, DELETE /conversations/:id (linked runs survive with conversation_id set to NULL). Plugin's Conversation repo is optional at construction — passing nil falls back to legacy per-run behavior. Full test suite green across 13 packages."
       ],
       "started_at": "2026-04-24T22:23:24.673947+02:00",
       "completed_at": "2026-04-24T22:26:03.53183+02:00",
@@ -189,7 +189,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "app/src/types/api.ts: added optional source + conversation_id on Run and a Conversation interface. app/src/lib/api.ts: conversationsApi helper (listByAssistant / listByConnection / get / delete). Chat sidebar renders a source badge next to each run title so users can see which channel (telegram, desktop, etc.) initiated the run \u2014 paired with the conversation_id field the backend now emits, the frontend is ready for the richer thread-grouping view that a follow-up polish pass can deliver. Frontend lint clean, tsc clean, 20/20 vitest green, vite production build clean. Backend test sweep also remains green."
+        "app/src/types/api.ts: added optional source + conversation_id on Run and a Conversation interface. app/src/lib/api.ts: conversationsApi helper (listByAssistant / listByConnection / get / delete). Chat sidebar renders a source badge next to each run title so users can see which channel (telegram, desktop, etc.) initiated the run — paired with the conversation_id field the backend now emits, the frontend is ready for the richer thread-grouping view that a follow-up polish pass can deliver. Frontend lint clean, tsc clean, 20/20 vitest green, vite production build clean. Backend test sweep also remains green."
       ],
       "started_at": "2026-04-24T22:27:45.453728+02:00",
       "completed_at": "2026-04-24T22:29:50.778271+02:00",
@@ -249,7 +249,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/email/transport/transport.go: Config shape (IMAP/SMTP host+port+username+password+from+auth_mech); SendEmail builds RFC 5322 message with Message-ID + In-Reply-To + References headers for threading, handles STARTTLS (port 587) via net/smtp and implicit-TLS (port 465) via its own dialer; FetchNew opens an IMAP TLS session with github.com/emersion/go-imap/v2, logs in, selects INBOX, fetches UIDs > sinceUID returning parsed Message structs (UID, MessageID, InReplyTo, References, From, To, Subject, Body, ReceivedAt) and the new watermark. extractPlainBody strips headers from raw message bytes (handles both CRLF and LF-only). ParseAddress normalizes to bare local@domain for identity-allowlist matching. Deps added: emersion/go-imap/v2, emersion/go-sasl (via tidy). 6 unit tests cover address parsing, header-stripping in both line-ending styles, and the config-validation paths. IDLE, multipart MIME, OAuth XOAUTH2 deferred to follow-up tasks (email-02/03/05). Full backend test sweep across 14 packages green."
+        "internal/plugins/email/transport/transport.go: Config shape (IMAP/SMTP host+port+username+password+from+auth_mech); SendEmail builds RFC 5322 message with Message-ID + In-Reply-To + References headers for threading, handles STARTTLS (port 587) via net/smtp and implicit-TLS (port 465) via its own dialer; FetchNew opens an IMAP TLS session with github.com/emersion/go-imap/v2, logs in, selects INBOX, fetches UIDs \u003e sinceUID returning parsed Message structs (UID, MessageID, InReplyTo, References, From, To, Subject, Body, ReceivedAt) and the new watermark. extractPlainBody strips headers from raw message bytes (handles both CRLF and LF-only). ParseAddress normalizes to bare local@domain for identity-allowlist matching. Deps added: emersion/go-imap/v2, emersion/go-sasl (via tidy). 6 unit tests cover address parsing, header-stripping in both line-ending styles, and the config-validation paths. IDLE, multipart MIME, OAuth XOAUTH2 deferred to follow-up tasks (email-02/03/05). Full backend test sweep across 14 packages green."
       ],
       "started_at": "2026-04-24T23:02:20.857226+02:00",
       "completed_at": "2026-04-24T23:04:48.59212+02:00",
@@ -260,7 +260,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/email/plugin.go implements plugins.Plugin + ChannelProvider + ConnectionHealthReporter. Poll loop per enabled connection runs every config.poll_interval_seconds (default 60s) via transport.FetchNew; maintains a per-connection UID watermark so only new messages cross the boundary. handleMessage resolves channel-role assistant via bindings, enforces identity allowlist (with first-contact policy \u2014 drop / reply_request_access / queue_approval), derives a thread key from References \u2192 InReplyTo \u2192 Message-ID and uses FindOrCreate on ConversationRepository so multi-email exchanges thread into one Conversation. goal string concatenates Subject + From + Body for readable display. Channel.Send uses In-Reply-To + References to preserve threading across outbound replies. Manifest declares \"email\" channel kind, network.outgoing + filesystem.read capabilities, and full ConfigSchema (imap_host, imap_port, smtp_host, smtp_port, username, poll_interval_seconds, first_contact_policy). Registered in main.go alongside Telegram. 4 plugin-level unit tests (manifest shape, recipient extraction, int-from-config variants, policy default) + 6 transport tests. Tool and Trigger roles deferred to email-03/email-04. Full backend test sweep across 15 packages green."
+        "internal/plugins/email/plugin.go implements plugins.Plugin + ChannelProvider + ConnectionHealthReporter. Poll loop per enabled connection runs every config.poll_interval_seconds (default 60s) via transport.FetchNew; maintains a per-connection UID watermark so only new messages cross the boundary. handleMessage resolves channel-role assistant via bindings, enforces identity allowlist (with first-contact policy — drop / reply_request_access / queue_approval), derives a thread key from References → InReplyTo → Message-ID and uses FindOrCreate on ConversationRepository so multi-email exchanges thread into one Conversation. goal string concatenates Subject + From + Body for readable display. Channel.Send uses In-Reply-To + References to preserve threading across outbound replies. Manifest declares \"email\" channel kind, network.outgoing + filesystem.read capabilities, and full ConfigSchema (imap_host, imap_port, smtp_host, smtp_port, username, poll_interval_seconds, first_contact_policy). Registered in main.go alongside Telegram. 4 plugin-level unit tests (manifest shape, recipient extraction, int-from-config variants, policy default) + 6 transport tests. Tool and Trigger roles deferred to email-03/email-04. Full backend test sweep across 15 packages green."
       ],
       "started_at": "2026-04-24T23:04:57.218568+02:00",
       "completed_at": "2026-04-24T23:07:44.378946+02:00",
@@ -282,7 +282,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/email/triggers.go: per-connection TriggerRule list (from_contains + subject_contains + body_contains + assistant_id + enabled) stored on conn.Config.trigger_rules. Rules are case-insensitive substring matchers; empty filters are skipped. firstMatchingRule gives predictable first-match-wins priority so users put specific rules before catch-alls. Wired into handleMessage: trigger rules short-circuit the channel-role flow \u2014 matched rule fires a Run against the rule's target assistant (threaded into the same Conversation so the user sees one coherent thread). Identity allowlist still gates the trigger path. Manifest declares the inbox_watch TriggerContribution + email.rule_matched event type. Extracted resolveThreadKey helper so channel and trigger paths share the same Message-ID \u2192 thread-root logic. 7 unit tests cover filter case-insensitivity, disabled/missing-assistant guards, catch-all semantics, first-match priority, malformed config tolerance, and thread-key resolution preference order. Full backend sweep across 17 packages green; Email plugin now contributes all three roles (channel + tool + trigger)."
+        "internal/plugins/email/triggers.go: per-connection TriggerRule list (from_contains + subject_contains + body_contains + assistant_id + enabled) stored on conn.Config.trigger_rules. Rules are case-insensitive substring matchers; empty filters are skipped. firstMatchingRule gives predictable first-match-wins priority so users put specific rules before catch-alls. Wired into handleMessage: trigger rules short-circuit the channel-role flow — matched rule fires a Run against the rule's target assistant (threaded into the same Conversation so the user sees one coherent thread). Identity allowlist still gates the trigger path. Manifest declares the inbox_watch TriggerContribution + email.rule_matched event type. Extracted resolveThreadKey helper so channel and trigger paths share the same Message-ID → thread-root logic. 7 unit tests cover filter case-insensitivity, disabled/missing-assistant guards, catch-all semantics, first-match priority, malformed config tolerance, and thread-key resolution preference order. Full backend sweep across 17 packages green; Email plugin now contributes all three roles (channel + tool + trigger)."
       ],
       "started_at": "2026-04-24T23:30:55.414326+02:00",
       "completed_at": "2026-04-24T23:32:53.69492+02:00",
@@ -437,7 +437,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Closed as superseded \u2014 same pattern applied this session to github-02-tools, task-collaborative-planning, and task-template-marketplace-v1. The trigger surface this task targets (pr_opened, issue_commented, push, workflow_failed) is already delivered via outbound polling in github-06-poll-triggers (done): internal/plugins/github/triggers.go implements two trigger kinds (issues, review_requests) with first-poll-baseline semantics, registered through the system-tier GitHub plugin. The webhook-receiver path itself is genuinely deferred \u2014 Nomi is local-first software running on :8080 with no inbound public reachability story; sibling task github-06-poll-triggers explicitly noted \"switching to webhooks happens once we have a tunneled receiver story.\" That tunneled-receiver story is foundational infrastructure (HMAC verification differs per provider, secret rotation, public-URL leak risk) and benefits Slack/Discord/Email/Calendar \u2014 not just GitHub. It will land via roady_review_spec as a fresh V1.3 spec entry \"Tunneled Inbound Receiver\", not smuggled under the GitHub umbrella."
+        "Closed as superseded — same pattern applied this session to github-02-tools, task-collaborative-planning, and task-template-marketplace-v1. The trigger surface this task targets (pr_opened, issue_commented, push, workflow_failed) is already delivered via outbound polling in github-06-poll-triggers (done): internal/plugins/github/triggers.go implements two trigger kinds (issues, review_requests) with first-poll-baseline semantics, registered through the system-tier GitHub plugin. The webhook-receiver path itself is genuinely deferred — Nomi is local-first software running on :8080 with no inbound public reachability story; sibling task github-06-poll-triggers explicitly noted \"switching to webhooks happens once we have a tunneled receiver story.\" That tunneled-receiver story is foundational infrastructure (HMAC verification differs per provider, secret rotation, public-URL leak risk) and benefits Slack/Discord/Email/Calendar — not just GitHub. It will land via roady_review_spec as a fresh V1.3 spec entry \"Tunneled Inbound Receiver\", not smuggled under the GitHub umbrella."
       ],
       "started_at": "2026-04-28T15:44:36.552023+02:00",
       "completed_at": "2026-04-28T15:44:47.807286+02:00",
@@ -448,7 +448,7 @@
       "path": "",
       "owner": "claude-code",
       "evidence": [
-        "internal/plugins/github/pulls.go: 4 tools (list/get/comment/review) on the same toolDef pattern as issues. .get bundles PR metadata + diff_url + checkrun list (anchored to head SHA in one extra round-trip) + extractIssueRefs() on the PR body. .review validates event \u2208 {APPROVE, REQUEST_CHANGES, COMMENT}, rejects empty COMMENT body so an agent producing '' doesn't accidentally approve. .comment uses the issues-comment endpoint (top-level PR comment). Check-runs failure is non-fatal: surfaced as check_runs_error on the pull field. 6 tests cover head/base flattening, check-run bundling, fault tolerance, event validation, empty-body rejection, APPROVE-without-body acceptance, extractIssueRefs across keyword variants."
+        "internal/plugins/github/pulls.go: 4 tools (list/get/comment/review) on the same toolDef pattern as issues. .get bundles PR metadata + diff_url + checkrun list (anchored to head SHA in one extra round-trip) + extractIssueRefs() on the PR body. .review validates event ∈ {APPROVE, REQUEST_CHANGES, COMMENT}, rejects empty COMMENT body so an agent producing '' doesn't accidentally approve. .comment uses the issues-comment endpoint (top-level PR comment). Check-runs failure is non-fatal: surfaced as check_runs_error on the pull field. 6 tests cover head/base flattening, check-run bundling, fault tolerance, event validation, empty-body rejection, APPROVE-without-body acceptance, extractIssueRefs across keyword variants."
       ],
       "started_at": "2026-04-28T08:25:20.378695+02:00",
       "completed_at": "2026-04-28T08:27:37.14832+02:00",
@@ -470,7 +470,7 @@
       "path": "",
       "owner": "claude-code",
       "evidence": [
-        "internal/plugins/github/triggers.go: Plugin.Triggers() lists per-Connection trigger instances (skipping disabled connections + ones with polling_enabled=false). Two kinds \u2014 github.issue_opened, github.pr_review_requested \u2014 with a 60s polling cadence. First poll establishes baseline (no firings) so daemon restart doesn't replay old state. issue_opened deltas highest-issue-number per repo; pr_review_requested tracks PR# set with non-empty requested_reviewers. Refuses to Start without a non-empty allowlist (would otherwise scan whole installation every minute). Token-bearer URL substituted in clone path scrubs token from any error message bubbled to caller. Manifest declares both TriggerContributions. 5 tests cover allowlist parsing (7 cases), polling-enabled coercion (8 cases), first-poll baseline, subsequent-poll firing on deltas in correct order, empty-allowlist refusal, idempotent Stop. Build + tests green."
+        "internal/plugins/github/triggers.go: Plugin.Triggers() lists per-Connection trigger instances (skipping disabled connections + ones with polling_enabled=false). Two kinds — github.issue_opened, github.pr_review_requested — with a 60s polling cadence. First poll establishes baseline (no firings) so daemon restart doesn't replay old state. issue_opened deltas highest-issue-number per repo; pr_review_requested tracks PR# set with non-empty requested_reviewers. Refuses to Start without a non-empty allowlist (would otherwise scan whole installation every minute). Token-bearer URL substituted in clone path scrubs token from any error message bubbled to caller. Manifest declares both TriggerContributions. 5 tests cover allowlist parsing (7 cases), polling-enabled coercion (8 cases), first-poll baseline, subsequent-poll firing on deltas in correct order, empty-allowlist refusal, idempotent Stop. Build + tests green."
       ],
       "started_at": "2026-04-28T08:29:43.654349+02:00",
       "completed_at": "2026-04-28T08:32:36.650159+02:00",
@@ -481,7 +481,7 @@
       "path": "",
       "owner": "claude-code",
       "evidence": [
-        "GitHub connections work through the existing dynamic plugins-manager dialog: manifest's Requirements.Credentials gains a github_app_private_key entry (kind, key=private_key_pem, label, description with PEM-block hint). polling_enabled flipped to type \"boolean\" so it renders as a toggle instead of free-text. App ID/installation_id/account_login descriptions extended with where-to-find pointers. Frontend AddConnectionDialog gains a multi-line textarea + monospace + blur-when-hidden branch for kind=github_app_private_key (PEMs are multi-line by nature; the password masking blurs but keeps the textarea size). PAT path intentionally not exposed \u2014 the spec calls for App-flavor attribution and our auth.go is App-only. Build + Go tests + tsc + eslint + vitest (36 tests) all clean."
+        "GitHub connections work through the existing dynamic plugins-manager dialog: manifest's Requirements.Credentials gains a github_app_private_key entry (kind, key=private_key_pem, label, description with PEM-block hint). polling_enabled flipped to type \"boolean\" so it renders as a toggle instead of free-text. App ID/installation_id/account_login descriptions extended with where-to-find pointers. Frontend AddConnectionDialog gains a multi-line textarea + monospace + blur-when-hidden branch for kind=github_app_private_key (PEMs are multi-line by nature; the password masking blurs but keeps the textarea size). PAT path intentionally not exposed — the spec calls for App-flavor attribution and our auth.go is App-only. Build + Go tests + tsc + eslint + vitest (36 tests) all clean."
       ],
       "started_at": "2026-04-28T08:32:47.951798+02:00",
       "completed_at": "2026-04-28T08:34:34.039811+02:00",
@@ -492,7 +492,7 @@
       "path": "",
       "owner": "claude-code",
       "evidence": [
-        "templates/built-in.json: new \"GitHub PR Reviewer\" entry (id template-github-pr-reviewer) with capabilities github.read+github.write+network.outgoing, system prompt walking through the read-diff \u2192 categorize-by-severity (blocking/recommended/nits) \u2192 choose-verdict-with-rules \u2192 submit-via-pulls.review chain, and an explicit non-negotiables section preventing politeness-approvals + empty COMMENT bodies. Permission policy: github.read=allow, github.write=confirm (so the user approves before any post lands), network.outgoing constrained to api.github.com + raw.githubusercontent.com. Renamed to *github-pr-reviewer to avoid clash with existing local-files Code Reviewer. Bumped count assertions in templates/templates_test.go and internal/api/smoke_test.go from 6 \u2192 7. Full Go suite + frontend lint/type-check green."
+        "templates/built-in.json: new \"GitHub PR Reviewer\" entry (id template-github-pr-reviewer) with capabilities github.read+github.write+network.outgoing, system prompt walking through the read-diff → categorize-by-severity (blocking/recommended/nits) → choose-verdict-with-rules → submit-via-pulls.review chain, and an explicit non-negotiables section preventing politeness-approvals + empty COMMENT bodies. Permission policy: github.read=allow, github.write=confirm (so the user approves before any post lands), network.outgoing constrained to api.github.com + raw.githubusercontent.com. Renamed to *github-pr-reviewer to avoid clash with existing local-files Code Reviewer. Bumped count assertions in templates/templates_test.go and internal/api/smoke_test.go from 6 → 7. Full Go suite + frontend lint/type-check green."
       ],
       "started_at": "2026-04-28T08:34:46.09321+02:00",
       "completed_at": "2026-04-28T08:38:53.5311+02:00",
@@ -503,7 +503,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Moved internal/connectors/google/{oauth,oauth_test}.go to internal/integrations/google/; imports in cmd/nomid/main.go + internal/api/router.go repointed to the new location. The connectors/google/ directory is gone. Integration tests (5 test cases covering device flow, poll success + access_denied, refresh, revoke) still pass. Google OAuth is now architecturally shared across Gmail/Calendar plugins \u2014 future plugins (gmail-02, calendar-01) import from integrations/google."
+        "Moved internal/connectors/google/{oauth,oauth_test}.go to internal/integrations/google/; imports in cmd/nomid/main.go + internal/api/router.go repointed to the new location. The connectors/google/ directory is gone. Integration tests (5 test cases covering device flow, poll success + access_denied, refresh, revoke) still pass. Google OAuth is now architecturally shared across Gmail/Calendar plugins — future plugins (gmail-02, calendar-01) import from integrations/google."
       ],
       "started_at": "2026-04-24T23:01:13.077289+02:00",
       "completed_at": "2026-04-24T23:02:01.167739+02:00",
@@ -514,7 +514,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/gmail/ \u2014 tool-only plugin mirroring the Calendar shape. Provider interface (provider.go) abstracts the backend; GoogleProvider (google.go) hits gmail.googleapis.com directly with raw REST + RFC 5322 multipart message construction (text/plain, multipart/alternative when HTML, multipart/mixed when attachments). Five tools: gmail.send (HTML, attachments, drafts, threading), gmail.search_threads (Gmail query syntax), gmail.read_thread (fetches bodies including text + html), gmail.label (add/remove ids in one call), gmail.archive (removes INBOX). Uses the shared google.OAuthManager so a single Google account works for both Calendar and Gmail. SetProviderOverride seam lets tests inject stubs without OAuth. NetworkAllowlist: gmail.googleapis.com + oauth2.googleapis.com. 18 unit tests covering manifest, all 5 tools, RFC822 build paths (plain, alternative, mixed), input validation (missing To, bad base64, missing message_id), binding rejection, disabled connection. Whole 30-package suite green."
+        "internal/plugins/gmail/ — tool-only plugin mirroring the Calendar shape. Provider interface (provider.go) abstracts the backend; GoogleProvider (google.go) hits gmail.googleapis.com directly with raw REST + RFC 5322 multipart message construction (text/plain, multipart/alternative when HTML, multipart/mixed when attachments). Five tools: gmail.send (HTML, attachments, drafts, threading), gmail.search_threads (Gmail query syntax), gmail.read_thread (fetches bodies including text + html), gmail.label (add/remove ids in one call), gmail.archive (removes INBOX). Uses the shared google.OAuthManager so a single Google account works for both Calendar and Gmail. SetProviderOverride seam lets tests inject stubs without OAuth. NetworkAllowlist: gmail.googleapis.com + oauth2.googleapis.com. 18 unit tests covering manifest, all 5 tools, RFC822 build paths (plain, alternative, mixed), input validation (missing To, bad base64, missing message_id), binding rejection, disabled connection. Whole 30-package suite green."
       ],
       "started_at": "2026-04-26T12:00:31.349157+02:00",
       "completed_at": "2026-04-26T13:56:53.567864+02:00",
@@ -525,7 +525,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/gmail/trigger.go \u2014 three trigger kinds (gmail.from_watch, gmail.label_watch, gmail.query_watch) backed by Gmail's history API for efficient delta polling. One Trigger per (connection, rule) so each rule polls independently. Provider interface gained GetMessage, LatestHistoryID, History methods; GoogleProvider implements them against gmail.googleapis.com (history endpoint with historyTypes=messageAdded,labelAdded). First poll establishes a historyId baseline (no events fire) so an existing mailbox doesn't retro-fire on connection up; subsequent polls fetch deltas. query_watch matches by re-running the user's query with rfc822msgid: appended for the candidate message. Trigger rules live in connection config under trigger_rules[]. Manifest TriggerContribution declares all three kinds with example rule shapes in descriptions. Stop is idempotent + safe before Start. 12 trigger tests covering manifest, materialization (one per rule, malformed rule rejection, disabled connection), pollOnce semantics for each kind (from-match, label-match, query-match), baseline-no-fire on first tick, cursor advance, transient-error preserves cursor, idempotent Start/Stop, poll interval override, rules config parsing edge cases. Whole 30-package suite green."
+        "internal/plugins/gmail/trigger.go — three trigger kinds (gmail.from_watch, gmail.label_watch, gmail.query_watch) backed by Gmail's history API for efficient delta polling. One Trigger per (connection, rule) so each rule polls independently. Provider interface gained GetMessage, LatestHistoryID, History methods; GoogleProvider implements them against gmail.googleapis.com (history endpoint with historyTypes=messageAdded,labelAdded). First poll establishes a historyId baseline (no events fire) so an existing mailbox doesn't retro-fire on connection up; subsequent polls fetch deltas. query_watch matches by re-running the user's query with rfc822msgid: appended for the candidate message. Trigger rules live in connection config under trigger_rules[]. Manifest TriggerContribution declares all three kinds with example rule shapes in descriptions. Stop is idempotent + safe before Start. 12 trigger tests covering manifest, materialization (one per rule, malformed rule rejection, disabled connection), pollOnce semantics for each kind (from-match, label-match, query-match), baseline-no-fire on first tick, cursor advance, transient-error preserves cursor, idempotent Start/Stop, poll interval override, rules config parsing edge cases. Whole 30-package suite green."
       ],
       "started_at": "2026-04-26T14:09:31.673692+02:00",
       "completed_at": "2026-04-26T14:15:07.647968+02:00",
@@ -558,7 +558,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "app/src/types/api.ts: ChannelIdentity + FirstContactPolicy types. app/src/lib/api.ts: identitiesApi helper (list/create/update/delete). app/src/components/identity-allowlist.tsx: new IdentityAllowlist component \u2014 renders list with inline enable/disable + delete, amber warning card when allowlist is empty (\"open to anyone\"), and an AddIdentityForm for entering external ids. app/src/components/plugins-manager.tsx: per-channel connections in the Plugins tab gain a chevron toggle; expanding reveals IdentityAllowlist. Gated behind \"plugin has a channel contribution\" so tool-only plugins don't render the panel. Frontend tsc/lint/20-vitest/vite-build clean."
+        "app/src/types/api.ts: ChannelIdentity + FirstContactPolicy types. app/src/lib/api.ts: identitiesApi helper (list/create/update/delete). app/src/components/identity-allowlist.tsx: new IdentityAllowlist component — renders list with inline enable/disable + delete, amber warning card when allowlist is empty (\"open to anyone\"), and an AddIdentityForm for entering external ids. app/src/components/plugins-manager.tsx: per-channel connections in the Plugins tab gain a chevron toggle; expanding reveals IdentityAllowlist. Gated behind \"plugin has a channel contribution\" so tool-only plugins don't render the panel. Frontend tsc/lint/20-vitest/vite-build clean."
       ],
       "started_at": "2026-04-24T22:46:40.181763+02:00",
       "completed_at": "2026-04-24T22:48:18.550026+02:00",
@@ -652,7 +652,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Telegram Channel.Send routes per Attachment.Kind: sendPhoto / sendVoice / sendVideo / sendDocument (unknown kinds fall back to sendDocument). Inline byte attachments upload via multipart/form-data using mime/multipart; URL-only attachments take the JSON path so Telegram fetches the file itself. msg.Text becomes the caption on the first attachment; subsequent attachments use att.Caption. Empty-text + no-attachments is a no-op. Errors decoded via shared decodeTelegramError helper that surfaces the Bot API description field. 4 new tests verify image \u2192 sendPhoto+multipart routing, voice \u2192 sendVoice routing, URL \u2192 JSON path, and unknown-kind document fallback. Backend sweep across 18 packages green."
+        "Telegram Channel.Send routes per Attachment.Kind: sendPhoto / sendVoice / sendVideo / sendDocument (unknown kinds fall back to sendDocument). Inline byte attachments upload via multipart/form-data using mime/multipart; URL-only attachments take the JSON path so Telegram fetches the file itself. msg.Text becomes the caption on the first attachment; subsequent attachments use att.Caption. Empty-text + no-attachments is a no-op. Errors decoded via shared decodeTelegramError helper that surfaces the Bot API description field. 4 new tests verify image → sendPhoto+multipart routing, voice → sendVoice routing, URL → JSON path, and unknown-kind document fallback. Backend sweep across 18 packages green."
       ],
       "started_at": "2026-04-24T23:45:03.454081+02:00",
       "completed_at": "2026-04-25T07:23:14.47302+02:00",
@@ -674,7 +674,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/discord/plugin.go: Channel.Send falls through to ChannelMessageSendComplex with a populated Files slice when msg.Attachments is non-empty. msg.Text + concatenated per-attachment Captions become the message Content (Discord doesn't have a per-attachment caption concept). Inline-bytes-only \u2014 URL-only attachments are rejected with a clear error since Discord's API requires file uploads. Fallback filenames per kind for inline-preview rendering. Backend sweep across 18 packages green."
+        "internal/plugins/discord/plugin.go: Channel.Send falls through to ChannelMessageSendComplex with a populated Files slice when msg.Attachments is non-empty. msg.Text + concatenated per-attachment Captions become the message Content (Discord doesn't have a per-attachment caption concept). Inline-bytes-only — URL-only attachments are rejected with a clear error since Discord's API requires file uploads. Fallback filenames per kind for inline-preview rendering. Backend sweep across 18 packages green."
       ],
       "started_at": "2026-04-25T07:38:43.363091+02:00",
       "completed_at": "2026-04-25T07:39:47.32826+02:00",
@@ -685,7 +685,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/email/transport/transport.go: new EmailAttachment type + SendEmailWithAttachments helper that constructs a multipart/mixed MIME body \u2014 text/plain body part followed by one base64-encoded part per attachment with proper Content-Type / Content-Disposition headers. wrapBase64 honours RFC 2045's 76-char line-length recommendation. No-attachment calls fast-path through SendEmail to keep the simple case simple. Email plugin's Channel.Send routes through SendEmailWithAttachments when msg.Attachments is non-empty; URL-only attachments rejected with a clear error. 4 transport tests cover line-wrap behavior, short-payload no-wrap, fast-path delegation, and from/username validation. Backend sweep across 18 packages green."
+        "internal/plugins/email/transport/transport.go: new EmailAttachment type + SendEmailWithAttachments helper that constructs a multipart/mixed MIME body — text/plain body part followed by one base64-encoded part per attachment with proper Content-Type / Content-Disposition headers. wrapBase64 honours RFC 2045's 76-char line-length recommendation. No-attachment calls fast-path through SendEmail to keep the simple case simple. Email plugin's Channel.Send routes through SendEmailWithAttachments when msg.Attachments is non-empty; URL-only attachments rejected with a clear error. 4 transport tests cover line-wrap behavior, short-payload no-wrap, fast-path delegation, and from/username validation. Backend sweep across 18 packages green."
       ],
       "started_at": "2026-04-25T07:39:48.064615+02:00",
       "completed_at": "2026-04-25T07:42:31.838488+02:00",
@@ -707,7 +707,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/media/plugin.go: tool-only com.nomi.media plugin (Cardinality=single \u2014 one install, all channels benefit). Backend interfaces TTSBackend + STTBackend let main() bind real implementations (Piper/whisper.cpp in media-08/09); when no backend is bound, tools return a clean \"no backend configured\" error rather than silently failing. Manifest declares 3 capabilities (media.tts/stt/vision) and 2 v1 tools (media.speak + media.transcribe; media.describe_image gated until vision backend lands). ConfigSchema fields for backend selection (tts_backend / tts_voice / stt_backend / stt_model / vision_backend). 6 unit tests cover manifest shape, no-backend error paths, missing-input validation, fakeTTS/fakeSTT routing through to backends, and language hint passthrough. Registered in main.go alongside the other plugins. Backend sweep across 19 packages green."
+        "internal/plugins/media/plugin.go: tool-only com.nomi.media plugin (Cardinality=single — one install, all channels benefit). Backend interfaces TTSBackend + STTBackend let main() bind real implementations (Piper/whisper.cpp in media-08/09); when no backend is bound, tools return a clean \"no backend configured\" error rather than silently failing. Manifest declares 3 capabilities (media.tts/stt/vision) and 2 v1 tools (media.speak + media.transcribe; media.describe_image gated until vision backend lands). ConfigSchema fields for backend selection (tts_backend / tts_voice / stt_backend / stt_model / vision_backend). 6 unit tests cover manifest shape, no-backend error paths, missing-input validation, fakeTTS/fakeSTT routing through to backends, and language hint passthrough. Registered in main.go alongside the other plugins. Backend sweep across 19 packages green."
       ],
       "started_at": "2026-04-25T18:09:54.211122+02:00",
       "completed_at": "2026-04-25T18:12:17.515058+02:00",
@@ -718,7 +718,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/media/piper.go: PiperBackend implements TTSBackend by shelling out to the `piper` CLI with text on stdin, writing WAV to a temp file, and reading the bytes back. NewPiperBackend probes for the binary on PATH + the voice-model directory (default ~/.nomi/models/piper/); returns (nil, nil) when either is absent so main() can boot without Piper installed and the plugin surfaces \"no TTS backend configured\" instead of crashing. Path-traversal guard on the voice id rejects \"/\", \"\\\\\", and \".\" so a malicious caller can't escape modelDir. 30s subprocess timeout via context.WithTimeout \u2014 Piper does ~5x realtime, so a multi-paragraph reply still fits. Returns audio/wav; OGG transcoding for Telegram voice messages stays a follow-up. Wired into main.go with soft-fail probe + log line when bound. 4 unit tests cover soft-nil contract on missing binary, path-traversal rejection, empty-text rejection, and stable Name() for telemetry. Backend sweep across 19 packages green."
+        "internal/plugins/media/piper.go: PiperBackend implements TTSBackend by shelling out to the `piper` CLI with text on stdin, writing WAV to a temp file, and reading the bytes back. NewPiperBackend probes for the binary on PATH + the voice-model directory (default ~/.nomi/models/piper/); returns (nil, nil) when either is absent so main() can boot without Piper installed and the plugin surfaces \"no TTS backend configured\" instead of crashing. Path-traversal guard on the voice id rejects \"/\", \"\\\\\", and \".\" so a malicious caller can't escape modelDir. 30s subprocess timeout via context.WithTimeout — Piper does ~5x realtime, so a multi-paragraph reply still fits. Returns audio/wav; OGG transcoding for Telegram voice messages stays a follow-up. Wired into main.go with soft-fail probe + log line when bound. 4 unit tests cover soft-nil contract on missing binary, path-traversal rejection, empty-text rejection, and stable Name() for telemetry. Backend sweep across 19 packages green."
       ],
       "started_at": "2026-04-25T18:12:39.440853+02:00",
       "completed_at": "2026-04-25T18:14:07.135753+02:00",
@@ -729,7 +729,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/media/whisper.go: WhisperBackend probes for whisper-cli / whisper-cpp / whisper on PATH (in that order \u2014 whisper-cli is the homebrew name) and ggml-<modelSize>.bin under modelDir (default ~/.nomi/models/whisper/, default model \"base.en\"). Soft-nil contract matches Piper. Transcribe writes audio to temp WAV, shells out with --output-txt + --no-prints + optional -l language hint, reads the .txt sibling back. 5min subprocess budget covers the slowest realistic case (large model on a slow CPU). Returns transcript + echoed languageHint as detected_language. Format conversion (OGG/M4A \u2192 WAV) deferred \u2014 whisper.cpp ships with optional ffmpeg integration that handles common formats; explicit conversion lands as a follow-up if needed. Wired into main.go alongside Piper with same soft-fail probe pattern. 4 unit tests cover soft-nil contract, empty-audio rejection, stable Name() for telemetry, and binary discovery preference order. Backend sweep across 19 packages green."
+        "internal/plugins/media/whisper.go: WhisperBackend probes for whisper-cli / whisper-cpp / whisper on PATH (in that order — whisper-cli is the homebrew name) and ggml-\u003cmodelSize\u003e.bin under modelDir (default ~/.nomi/models/whisper/, default model \"base.en\"). Soft-nil contract matches Piper. Transcribe writes audio to temp WAV, shells out with --output-txt + --no-prints + optional -l language hint, reads the .txt sibling back. 5min subprocess budget covers the slowest realistic case (large model on a slow CPU). Returns transcript + echoed languageHint as detected_language. Format conversion (OGG/M4A → WAV) deferred — whisper.cpp ships with optional ffmpeg integration that handles common formats; explicit conversion lands as a follow-up if needed. Wired into main.go alongside Piper with same soft-fail probe pattern. 4 unit tests cover soft-nil contract, empty-audio rejection, stable Name() for telemetry, and binary discovery preference order. Backend sweep across 19 packages green."
       ],
       "started_at": "2026-04-25T18:14:27.245003+02:00",
       "completed_at": "2026-04-25T18:16:08.644667+02:00",
@@ -740,7 +740,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/runtime/enrichment.go: EnrichmentService walks a Run's RunAttachments before planning starts. Audio attachments fetch via httpClient (30s timeout, 25 MiB ceiling) and dispatch media.transcribe via tools.Executor; transcripts are folded into the Run's goal as \"[voice transcript: filename]\\n<text>\". Image/document/video attachments produce announcement lines so the planner at least knows they're there until vision/extraction backends ship. Per-attachment failures are silent (non-fatal) so one malformed attachment doesn't strand a Run. Wired into executePlanningPhase before planSteps; enriched goal is persisted via runRepo.Update so the UI shows the same enriched text. Telegram-only attachments stored with external_id but no URL are explicitly skipped \u2014 getFile resolution is a follow-up. 4 unit tests cover no-attachments pass-through, image/document announcement without backend, audio transcription end-to-end with a fake media.transcribe tool, and audio-without-URL skip behavior. Backend sweep across 19 packages green."
+        "internal/runtime/enrichment.go: EnrichmentService walks a Run's RunAttachments before planning starts. Audio attachments fetch via httpClient (30s timeout, 25 MiB ceiling) and dispatch media.transcribe via tools.Executor; transcripts are folded into the Run's goal as \"[voice transcript: filename]\\n\u003ctext\u003e\". Image/document/video attachments produce announcement lines so the planner at least knows they're there until vision/extraction backends ship. Per-attachment failures are silent (non-fatal) so one malformed attachment doesn't strand a Run. Wired into executePlanningPhase before planSteps; enriched goal is persisted via runRepo.Update so the UI shows the same enriched text. Telegram-only attachments stored with external_id but no URL are explicitly skipped — getFile resolution is a follow-up. 4 unit tests cover no-attachments pass-through, image/document announcement without backend, audio transcription end-to-end with a fake media.transcribe tool, and audio-without-URL skip behavior. Backend sweep across 19 packages green."
       ],
       "started_at": "2026-04-25T18:16:35.472855+02:00",
       "completed_at": "2026-04-25T18:20:33.137739+02:00",
@@ -800,7 +800,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/{plugin,roles,manifest,plugin_test}.go \u2014 Plugin interface, 4 role interfaces (ChannelProvider/ToolProvider/TriggerProvider/ContextSourceProvider), PluginManifest + Contributions + Requirements types, Cardinality constants, PluginStatus + TriggerEvent. 4 tests: JSON round-trip, HasRole, cardinality distinctness, multi-role interface satisfaction. go build ./... + go test -race ./internal/plugins/... green."
+        "internal/plugins/{plugin,roles,manifest,plugin_test}.go — Plugin interface, 4 role interfaces (ChannelProvider/ToolProvider/TriggerProvider/ContextSourceProvider), PluginManifest + Contributions + Requirements types, Cardinality constants, PluginStatus + TriggerEvent. 4 tests: JSON round-trip, HasRole, cardinality distinctness, multi-role interface satisfaction. go build ./... + go test -race ./internal/plugins/... green."
       ],
       "started_at": "2026-04-24T21:54:16.363719+02:00",
       "completed_at": "2026-04-24T21:56:50.916707+02:00",
@@ -822,7 +822,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Migration 000010_plugin_connections (up + down) adds plugin_connections + assistant_connection_bindings tables with ON DELETE CASCADE from connection \u2192 bindings. internal/domain/plugin.go defines Connection + AssistantConnectionBinding + BindingRole. internal/storage/db/repository_plugin.go provides ConnectionRepository (Create/Update/GetByID/ListByPlugin/ListEnabled/Delete) and AssistantBindingRepository (Upsert/Delete/ListByAssistant/ListByConnection/ResolvePrimary/HasBinding) with application-level primary-uniqueness enforcement (clearOtherPrimaries). 8 repository tests cover round-trip, enabled-filter, update/delete, primary resolution via join, primary-uniqueness invariant, role-scoped HasBinding, cascade-on-delete, and role validation. Full test suite (go test -race ./...) passes across all 12 packages."
+        "Migration 000010_plugin_connections (up + down) adds plugin_connections + assistant_connection_bindings tables with ON DELETE CASCADE from connection → bindings. internal/domain/plugin.go defines Connection + AssistantConnectionBinding + BindingRole. internal/storage/db/repository_plugin.go provides ConnectionRepository (Create/Update/GetByID/ListByPlugin/ListEnabled/Delete) and AssistantBindingRepository (Upsert/Delete/ListByAssistant/ListByConnection/ResolvePrimary/HasBinding) with application-level primary-uniqueness enforcement (clearOtherPrimaries). 8 repository tests cover round-trip, enabled-filter, update/delete, primary resolution via join, primary-uniqueness invariant, role-scoped HasBinding, cascade-on-delete, and role validation. Full test suite (go test -race ./...) passes across all 12 packages."
       ],
       "started_at": "2026-04-24T21:59:34.623487+02:00",
       "completed_at": "2026-04-24T22:03:10.193673+02:00",
@@ -844,7 +844,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "PermissionPolicy gains PerConnectionOverrides; permissions.Engine gains EvaluateForConnection + MatchingOverrideOrRule with resolution order \"per-connection override \u2192 matching PermissionRule \u2192 implicit deny.\" rateLimiter gains AllowConnectionToolCall / ForgetConnection with a separate token bucket per Connection (defense in depth for compromised credentials). internal/plugins/errors.go defines ErrConnectionNotBound sentinel + ConnectionNotBoundError wrapper (used by future plugin tools) + ApprovalCopyForConnection helper that renders \"Capability: gmail.send \u2014 via work@example.com\" for the approval dialog. Removed internal/connectors/google/gmail.go + gmail_test.go + internal/api/google.go (Gmail-as-connector stub); OAuthManager stays at internal/connectors/google/oauth.go awaiting the Gmail plugin refactor in task gmail-01. 4 permission tests + 3 rate-limit tests. Full test suite (go test -race ./...) green across all 13 packages."
+        "PermissionPolicy gains PerConnectionOverrides; permissions.Engine gains EvaluateForConnection + MatchingOverrideOrRule with resolution order \"per-connection override → matching PermissionRule → implicit deny.\" rateLimiter gains AllowConnectionToolCall / ForgetConnection with a separate token bucket per Connection (defense in depth for compromised credentials). internal/plugins/errors.go defines ErrConnectionNotBound sentinel + ConnectionNotBoundError wrapper (used by future plugin tools) + ApprovalCopyForConnection helper that renders \"Capability: gmail.send — via work@example.com\" for the approval dialog. Removed internal/connectors/google/gmail.go + gmail_test.go + internal/api/google.go (Gmail-as-connector stub); OAuthManager stays at internal/connectors/google/oauth.go awaiting the Gmail plugin refactor in task gmail-01. 4 permission tests + 3 rate-limit tests. Full test suite (go test -race ./...) green across all 13 packages."
       ],
       "started_at": "2026-04-24T22:12:07.15739+02:00",
       "completed_at": "2026-04-24T22:15:33.769387+02:00",
@@ -855,7 +855,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Migration 000015_plugin_state adds plugin_state table (plugin_id, distribution, installed, enabled, version, available_version, source_url, signature_fingerprint, installed_at, last_checked_at) \u2014 schema sized for the full ADR 0002 lifecycle so lifecycle-07/10 don't need migrations. domain.PluginState + PluginDistribution enum. PluginStateRepository with EnsureSystemPlugin (idempotent boot seed preserving user enable/disable choice across restarts), Get/List, SetEnabled, IsEnabled (defensive default true on missing row), Upsert (install/update path), Delete. plugins.Registry.StartAll gains optional EnabledLookup so disabled plugins skip Start without losing registry membership. main.go seeds every registered plugin's state at boot, then passes pluginStateRepo.IsEnabled as the lookup. New REST endpoints: GET /plugins/:id/state, PATCH /plugins/:id/state {enabled}; PluginResponse carries the state inline so /plugins listing one round-trip surfaces enable status. Frontend types + api helper (pluginsApi.getState/setEnabled). PluginCard renders top-level ToggleSwitch tied to plugin_state.enabled, \"system\" badge per ADR 0002 \u00a71, \"Disabled\" status badge + greyed card + amber explanation when off; toggle.mutate invalidates the plugins query so the UI updates instantly. Demoed end-to-end: PATCH off \u2192 PATCH on returns the right state; UI shows the toggle on every card. Plugin.Stop on disable + live re-Start on enable is intentionally deferred to lifecycle-07/10 \u2014 the v1 contract is \"won't auto-start on next boot.\" Backend sweep across 19 packages green; frontend tsc/lint/20-vitest/vite-build clean. Answers the user's original \"can I stop plugins?\" question end-to-end."
+        "Migration 000015_plugin_state adds plugin_state table (plugin_id, distribution, installed, enabled, version, available_version, source_url, signature_fingerprint, installed_at, last_checked_at) — schema sized for the full ADR 0002 lifecycle so lifecycle-07/10 don't need migrations. domain.PluginState + PluginDistribution enum. PluginStateRepository with EnsureSystemPlugin (idempotent boot seed preserving user enable/disable choice across restarts), Get/List, SetEnabled, IsEnabled (defensive default true on missing row), Upsert (install/update path), Delete. plugins.Registry.StartAll gains optional EnabledLookup so disabled plugins skip Start without losing registry membership. main.go seeds every registered plugin's state at boot, then passes pluginStateRepo.IsEnabled as the lookup. New REST endpoints: GET /plugins/:id/state, PATCH /plugins/:id/state {enabled}; PluginResponse carries the state inline so /plugins listing one round-trip surfaces enable status. Frontend types + api helper (pluginsApi.getState/setEnabled). PluginCard renders top-level ToggleSwitch tied to plugin_state.enabled, \"system\" badge per ADR 0002 §1, \"Disabled\" status badge + greyed card + amber explanation when off; toggle.mutate invalidates the plugins query so the UI updates instantly. Demoed end-to-end: PATCH off → PATCH on returns the right state; UI shows the toggle on every card. Plugin.Stop on disable + live re-Start on enable is intentionally deferred to lifecycle-07/10 — the v1 contract is \"won't auto-start on next boot.\" Backend sweep across 19 packages green; frontend tsc/lint/20-vitest/vite-build clean. Answers the user's original \"can I stop plugins?\" question end-to-end."
       ],
       "started_at": "2026-04-25T20:32:35.859719+02:00",
       "completed_at": "2026-04-25T21:43:24.818178+02:00",
@@ -877,7 +877,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Added github.com/tetratelabs/wazero (v1.11). New internal/plugins/wasmhost/ package: Loader (one wazero runtime per daemon, WASI Preview 1 host module pre-instantiated for TinyGo compatibility) + Module (per-plugin instance with cached export refs). ABI defined: alloc/dealloc for host-managed buffers in plugin memory; plugin_manifest returns packed (ptr<<32 | len) i64 with JSON manifest body; tool_execute takes (ptr, len) of JSON {name,input}, returns packed (ptr<<32 | len) of JSON {result,error}. Spike scope host imports: host_log + host_emit_event (both no-ops; lifecycle-04 wires the gated imports). Load fails fast when required exports are missing. examples/wasm-plugin-echo/main.go: TinyGo-compileable echo plugin (~120 lines) demonstrating alloc/dealloc with a live-buffer map, JSON-encoded manifest export, JSON-round-trip tool_execute. Compiled to internal/plugins/wasmhost/testdata/echo.wasm (415KB, committed) \u2014 tests load it via go:embed so CI doesn't need TinyGo. Critical fix found during the spike: TinyGo's WASI build auto-runs main as _start at instantiation, which exits-code-0 the module before any export is callable; wazero.NewModuleConfig().WithStartFunctions() (no args) overrides the default _start list and keeps the module alive. Documented in the Load comments. Makefile target `wasm-echo` rebuilds the .wasm; runs tinygo with -target=wasi -no-debug. 3 tests cover the full round-trip (manifest + tool_execute), missing-exports rejection, and the i64 packing convention. Backend sweep across 20 packages green."
+        "Added github.com/tetratelabs/wazero (v1.11). New internal/plugins/wasmhost/ package: Loader (one wazero runtime per daemon, WASI Preview 1 host module pre-instantiated for TinyGo compatibility) + Module (per-plugin instance with cached export refs). ABI defined: alloc/dealloc for host-managed buffers in plugin memory; plugin_manifest returns packed (ptr\u003c\u003c32 | len) i64 with JSON manifest body; tool_execute takes (ptr, len) of JSON {name,input}, returns packed (ptr\u003c\u003c32 | len) of JSON {result,error}. Spike scope host imports: host_log + host_emit_event (both no-ops; lifecycle-04 wires the gated imports). Load fails fast when required exports are missing. examples/wasm-plugin-echo/main.go: TinyGo-compileable echo plugin (~120 lines) demonstrating alloc/dealloc with a live-buffer map, JSON-encoded manifest export, JSON-round-trip tool_execute. Compiled to internal/plugins/wasmhost/testdata/echo.wasm (415KB, committed) — tests load it via go:embed so CI doesn't need TinyGo. Critical fix found during the spike: TinyGo's WASI build auto-runs main as _start at instantiation, which exits-code-0 the module before any export is callable; wazero.NewModuleConfig().WithStartFunctions() (no args) overrides the default _start list and keeps the module alive. Documented in the Load comments. Makefile target `wasm-echo` rebuilds the .wasm; runs tinygo with -target=wasi -no-debug. 3 tests cover the full round-trip (manifest + tool_execute), missing-exports rejection, and the i64 packing convention. Backend sweep across 20 packages green."
       ],
       "started_at": "2026-04-25T21:47:50.506553+02:00",
       "completed_at": "2026-04-25T22:08:18.279433+02:00",
@@ -888,7 +888,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Five capability-gated host imports added to the WASM ABI: host_http_request (gated by network.outgoing + manifest NetworkAllowlist \u2229 policy allowed_hosts), host_filesystem_read/write (gated by filesystem.read/write + workspace_root constraint), host_command_exec (gated by command.exec + allowed_binaries constraint), host_secrets_get (gated by secrets.read; key namespace partitioned per plugin to plugins/<plugin_id>/<key>). New CallConfig type carries per-call security context (PluginID, AssistantID, ConnectionID, Capabilities from manifest, NetworkAllowlist from manifest, Policy, Engine, HTTPClient) threaded through context.Context via WithCallConfig. Generic gate() function applies four security layers in order: (1) capability declared in manifest, (2) assistant + policy + engine present (rejects system-context calls by default), (3) per-connection override OR matching policy rule, (4) Allow mode required (Confirm rejected pending lifecycle-07's approval bridge). gateNetwork adds host-allowlist intersection check; gateCommand adds allowed_binaries lookup. Wildcard host matcher with leading-dot anchor (*.slack.com matches files.slack.com but NOT slack.com.attacker.com). Echo plugin extended: declares network.outgoing + NetworkAllowlist in manifest, exposes echo.fetch tool that calls host_http_request via //go:wasmimport. Build constraint //go:build tinygo on the example so plain Go test discovery skips it. Three end-to-end tests with the rebuilt WASM module: allowed-host round-trips through httptest server (200 + body), policy deny returns \"denied\" in plugin-visible response, host-allowlist mismatch returns \"not in plugin allowlist\" with both manifest + policy diagnostics. Plus 11 unit tests covering each gate layer in isolation, the host wildcard matcher (including leading-dot anchor), constraint shape coercion, and the per-connection-override precedence promised by ADR 0001 \u00a77. Backend sweep across 20 packages green."
+        "Five capability-gated host imports added to the WASM ABI: host_http_request (gated by network.outgoing + manifest NetworkAllowlist ∩ policy allowed_hosts), host_filesystem_read/write (gated by filesystem.read/write + workspace_root constraint), host_command_exec (gated by command.exec + allowed_binaries constraint), host_secrets_get (gated by secrets.read; key namespace partitioned per plugin to plugins/\u003cplugin_id\u003e/\u003ckey\u003e). New CallConfig type carries per-call security context (PluginID, AssistantID, ConnectionID, Capabilities from manifest, NetworkAllowlist from manifest, Policy, Engine, HTTPClient) threaded through context.Context via WithCallConfig. Generic gate() function applies four security layers in order: (1) capability declared in manifest, (2) assistant + policy + engine present (rejects system-context calls by default), (3) per-connection override OR matching policy rule, (4) Allow mode required (Confirm rejected pending lifecycle-07's approval bridge). gateNetwork adds host-allowlist intersection check; gateCommand adds allowed_binaries lookup. Wildcard host matcher with leading-dot anchor (*.slack.com matches files.slack.com but NOT slack.com.attacker.com). Echo plugin extended: declares network.outgoing + NetworkAllowlist in manifest, exposes echo.fetch tool that calls host_http_request via //go:wasmimport. Build constraint //go:build tinygo on the example so plain Go test discovery skips it. Three end-to-end tests with the rebuilt WASM module: allowed-host round-trips through httptest server (200 + body), policy deny returns \"denied\" in plugin-visible response, host-allowlist mismatch returns \"not in plugin allowlist\" with both manifest + policy diagnostics. Plus 11 unit tests covering each gate layer in isolation, the host wildcard matcher (including leading-dot anchor), constraint shape coercion, and the per-connection-override precedence promised by ADR 0001 §7. Backend sweep across 20 packages green."
       ],
       "started_at": "2026-04-25T22:51:47.497925+02:00",
       "completed_at": "2026-04-26T03:53:42.257303+02:00",
@@ -910,7 +910,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/signing/ package implements two-level Ed25519 chain (root \u2192 publisher \u2192 bundle). Verifier takes root pubkey via DI, walks chain on Verify(*bundle.Bundle), sentinel errors per cause. Sign + SignPublisherClaim helpers keep verifier and tooling on the same hash definition. Bundle gains RawManifest field so re-serialization can't break signatures. Publisher type extended with PublicKey, RootSignature, Expiry. 12 unit tests covering happy path, tampered manifest, tampered wasm, wrong root, expired key, zero-expiry, missing fields, fingerprint swap. Full suite green."
+        "internal/plugins/signing/ package implements two-level Ed25519 chain (root → publisher → bundle). Verifier takes root pubkey via DI, walks chain on Verify(*bundle.Bundle), sentinel errors per cause. Sign + SignPublisherClaim helpers keep verifier and tooling on the same hash definition. Bundle gains RawManifest field so re-serialization can't break signatures. Publisher type extended with PublicKey, RootSignature, Expiry. 12 unit tests covering happy path, tampered manifest, tampered wasm, wrong root, expired key, zero-expiry, missing fields, fingerprint swap. Full suite green."
       ],
       "started_at": "2026-04-26T08:22:26.379996+02:00",
       "completed_at": "2026-04-26T08:25:49.286383+02:00",
@@ -921,7 +921,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Three new packages + handlers: internal/plugins/store/ (atomic on-disk layout under ~/.nomi/plugins/<id>/, idempotent Remove, safe-id check, List for boot reload); internal/plugins/wasmplugin/ (wasmhost.Module \u2192 plugins.Plugin + ToolProvider adapter, lifecycle methods, per-call CallConfig builder); internal/api/plugins_install.go (POST /plugins/install for URL or multipart upload, DELETE /plugins/:id with cascade param). Pipeline: source bytes \u2192 bundle.Open \u2192 signing.Verify \u2192 wasmhost.Load \u2192 store.Install \u2192 registry.Register \u2192 plugin_state Upsert; rollback unwinds in reverse on any failure. Cascade=false marks installed=false but preserves connections/bindings/secrets for reattach; cascade=true wipes everything including credentials. System distribution refuses uninstall with 409. Router opt-in: install endpoints only enabled when PluginStore + PluginVerifier + WASMLoader all wired in RouterConfig. 6 install/uninstall integration tests + 7 store + 3 wasmplugin tests, all passing. Whole 25-package suite green."
+        "Three new packages + handlers: internal/plugins/store/ (atomic on-disk layout under ~/.nomi/plugins/\u003cid\u003e/, idempotent Remove, safe-id check, List for boot reload); internal/plugins/wasmplugin/ (wasmhost.Module → plugins.Plugin + ToolProvider adapter, lifecycle methods, per-call CallConfig builder); internal/api/plugins_install.go (POST /plugins/install for URL or multipart upload, DELETE /plugins/:id with cascade param). Pipeline: source bytes → bundle.Open → signing.Verify → wasmhost.Load → store.Install → registry.Register → plugin_state Upsert; rollback unwinds in reverse on any failure. Cascade=false marks installed=false but preserves connections/bindings/secrets for reattach; cascade=true wipes everything including credentials. System distribution refuses uninstall with 409. Router opt-in: install endpoints only enabled when PluginStore + PluginVerifier + WASMLoader all wired in RouterConfig. 6 install/uninstall integration tests + 7 store + 3 wasmplugin tests, all passing. Whole 25-package suite green."
       ],
       "started_at": "2026-04-26T08:28:24.317192+02:00",
       "completed_at": "2026-04-26T08:39:21.308865+02:00",
@@ -932,7 +932,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/devloader/ scans configurable dir for *.nomi-plugin files, parses + instantiates each, returns LoadResult with per-file errors so one bad bundle doesn't quiet the others. No signature verification (dev tier is unsigned by design \u2014 UI gets distribution=dev for the red banner). cmd/nomid/main.go reads dev_plugins_enabled setting (default false), scans <dataDir>/plugins-dev/ when true, registers + records distribution=dev plugin_state row. Flipping the setting back to false requires restart (ADR 0002 \u00a72 dev-tier semantics). 5 unit tests. Bonus: caught + fixed a wasmhost bug where two-plugin loads in one Loader silently destroyed the env host module \u2014 sync.Once now gates registerHostImports so env survives across loads. Daemon also wires marketplace install dependencies (NOMI_MARKETPLACE_ROOT_KEY env var seeds verifier; absent = handlers 503). Whole 26-package suite green."
+        "internal/plugins/devloader/ scans configurable dir for *.nomi-plugin files, parses + instantiates each, returns LoadResult with per-file errors so one bad bundle doesn't quiet the others. No signature verification (dev tier is unsigned by design — UI gets distribution=dev for the red banner). cmd/nomid/main.go reads dev_plugins_enabled setting (default false), scans \u003cdataDir\u003e/plugins-dev/ when true, registers + records distribution=dev plugin_state row. Flipping the setting back to false requires restart (ADR 0002 §2 dev-tier semantics). 5 unit tests. Bonus: caught + fixed a wasmhost bug where two-plugin loads in one Loader silently destroyed the env host module — sync.Once now gates registerHostImports so env survives across loads. Daemon also wires marketplace install dependencies (NOMI_MARKETPLACE_ROOT_KEY env var seeds verifier; absent = handlers 503). Whole 26-package suite green."
       ],
       "started_at": "2026-04-26T08:54:28.845644+02:00",
       "completed_at": "2026-04-26T10:36:39.874114+02:00",
@@ -943,7 +943,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/hub/ defines Catalog + Entry + SignedCatalog types pinned at SchemaVersion=1; Client.Fetch/Parse runs HTTP GET \u2192 ed25519 envelope verify \u2192 schema-version check \u2192 Catalog return, with sentinel errors per cause (ErrCatalogFetchFailed/ParseFailed/SignatureBad/VersionUnknown). 16 MiB response cap. SignCatalog helper for the publisher tooling lives in the same package so the wire format can't drift. GET /plugins/marketplace endpoint added behind a CatalogProvider in InstallDependencies; daemon wires a 1h-TTL in-memory cache that fetches on first hit (lifecycle-10 swaps for daily polling + disk cache). marketplace_catalog_url setting (default https://hub.nomi.ai/index.json). 11 hub unit tests + 2 endpoint tests covering happy path, tampered catalog, foreign-key signing, malformed envelope, schema mismatch, response size cap, 503 when not configured. The actual nomiai/hub repo + GitHub Actions workflow is out of scope here (separate repository)."
+        "internal/plugins/hub/ defines Catalog + Entry + SignedCatalog types pinned at SchemaVersion=1; Client.Fetch/Parse runs HTTP GET → ed25519 envelope verify → schema-version check → Catalog return, with sentinel errors per cause (ErrCatalogFetchFailed/ParseFailed/SignatureBad/VersionUnknown). 16 MiB response cap. SignCatalog helper for the publisher tooling lives in the same package so the wire format can't drift. GET /plugins/marketplace endpoint added behind a CatalogProvider in InstallDependencies; daemon wires a 1h-TTL in-memory cache that fetches on first hit (lifecycle-10 swaps for daily polling + disk cache). marketplace_catalog_url setting (default https://hub.nomi.ai/index.json). 11 hub unit tests + 2 endpoint tests covering happy path, tampered catalog, foreign-key signing, malformed envelope, schema mismatch, response size cap, 503 when not configured. The actual nomiai/hub repo + GitHub Actions workflow is out of scope here (separate repository)."
       ],
       "started_at": "2026-04-26T10:40:41.286489+02:00",
       "completed_at": "2026-04-26T10:46:08.36196+02:00",
@@ -954,7 +954,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/plugins/update/ ships Scan + Update with sentinel errors per cause (ErrPluginNotInstalled, ErrSystemPluginRefused, ErrAlreadyAtLatest, ErrNoCatalogEntry, ErrBundleHashMismatch). Scan diffs installed marketplace plugins against the catalog, sets available_version + last_checked_at + emits plugin.update_available exactly once per transition (idempotent on re-run). Update is the user-triggered swap: pre-compiles the new wasm BEFORE touching the live one (fail-fast), then stops + unregisters + removes + reinstalls + reregisters atomically; bundle SHA256 + manifest.id + signature.Verify all checked. Two new events: plugin.update_available, plugin.updated (added to internal/domain/models.go). POST /plugins/:id/update wired with sentinel\u2192HTTP-status mapping (404/409/400/502/500). cmd/nomid/main.go starts a 24h Scan ticker (first scan 30s after boot) when the catalog provider is configured. 12 update-package tests (Scan flag/clear/idempotent, Update happy/sig-fail/hash-mismatch/already-latest/system/not-installed, compareSemver) + 3 endpoint tests. Whole 28-package suite green."
+        "internal/plugins/update/ ships Scan + Update with sentinel errors per cause (ErrPluginNotInstalled, ErrSystemPluginRefused, ErrAlreadyAtLatest, ErrNoCatalogEntry, ErrBundleHashMismatch). Scan diffs installed marketplace plugins against the catalog, sets available_version + last_checked_at + emits plugin.update_available exactly once per transition (idempotent on re-run). Update is the user-triggered swap: pre-compiles the new wasm BEFORE touching the live one (fail-fast), then stops + unregisters + removes + reinstalls + reregisters atomically; bundle SHA256 + manifest.id + signature.Verify all checked. Two new events: plugin.update_available, plugin.updated (added to internal/domain/models.go). POST /plugins/:id/update wired with sentinel→HTTP-status mapping (404/409/400/502/500). cmd/nomid/main.go starts a 24h Scan ticker (first scan 30s after boot) when the catalog provider is configured. 12 update-package tests (Scan flag/clear/idempotent, Update happy/sig-fail/hash-mismatch/already-latest/system/not-installed, compareSemver) + 3 endpoint tests. Whole 28-package suite green."
       ],
       "started_at": "2026-04-26T10:46:16.055071+02:00",
       "completed_at": "2026-04-26T10:55:55.391748+02:00",
@@ -965,7 +965,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Already shipped earlier in plugin lifecycle work; PluginCard at app/src/components/plugins-manager.tsx:454-510 renders ToggleSwitch backed by pluginsApi.setEnabled mutation, with system-distribution badge and disabled-state tinting. Verified live via Scout in this turn \u2014 the toggle controls + system badges render alongside the new Install button."
+        "Already shipped earlier in plugin lifecycle work; PluginCard at app/src/components/plugins-manager.tsx:454-510 renders ToggleSwitch backed by pluginsApi.setEnabled mutation, with system-distribution badge and disabled-state tinting. Verified live via Scout in this turn — the toggle controls + system badges render alongside the new Install button."
       ],
       "started_at": "2026-04-26T11:44:58.499235+02:00",
       "completed_at": "2026-04-26T11:45:10.989417+02:00",
@@ -976,7 +976,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "app/src/components/install-plugin-dialog.tsx \u2014 Radix Dialog with mode toggle (URL paste vs file upload), TrustPanel that surfaces capabilities + network allowlist + publisher fingerprint when the URL matches a known marketplace catalog entry, command.exec amber warning. app/src/lib/api.ts extended with pluginsApi.installFromURL/installFromFile (raw fetch for multipart since fetchApi forces JSON Content-Type), uninstall, marketplace, update. Types added: MarketplaceEntry, MarketplaceCatalog, requires.network_allowlist on PluginManifest. plugins-manager.tsx grew an \"Install plugin\" button + dialog mount. tsc clean, eslint clean (max-warnings 0), production vite build clean."
+        "app/src/components/install-plugin-dialog.tsx — Radix Dialog with mode toggle (URL paste vs file upload), TrustPanel that surfaces capabilities + network allowlist + publisher fingerprint when the URL matches a known marketplace catalog entry, command.exec amber warning. app/src/lib/api.ts extended with pluginsApi.installFromURL/installFromFile (raw fetch for multipart since fetchApi forces JSON Content-Type), uninstall, marketplace, update. Types added: MarketplaceEntry, MarketplaceCatalog, requires.network_allowlist on PluginManifest. plugins-manager.tsx grew an \"Install plugin\" button + dialog mount. tsc clean, eslint clean (max-warnings 0), production vite build clean."
       ],
       "started_at": "2026-04-26T11:10:06.396482+02:00",
       "completed_at": "2026-04-26T11:19:02.446487+02:00",
@@ -987,7 +987,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "app/src/components/marketplace-browser-dialog.tsx \u2014 radix Dialog with search, scrollable card list (CatalogEntryCard) showing name, version, size, capabilities, publisher fingerprint, install button. Per-card Install hands off to InstallPluginDialog with the entry as preset. 503 surfaces as friendly \"Marketplace not configured\" panel with NOMI_MARKETPLACE_ROOT_KEY hint. Wired into plugins-manager via \"Browse marketplace\" header button. Verified live via Scout: dialog opens, fallback panel renders correctly when daemon has no root key configured."
+        "app/src/components/marketplace-browser-dialog.tsx — radix Dialog with search, scrollable card list (CatalogEntryCard) showing name, version, size, capabilities, publisher fingerprint, install button. Per-card Install hands off to InstallPluginDialog with the entry as preset. 503 surfaces as friendly \"Marketplace not configured\" panel with NOMI_MARKETPLACE_ROOT_KEY hint. Wired into plugins-manager via \"Browse marketplace\" header button. Verified live via Scout: dialog opens, fallback panel renders correctly when daemon has no root key configured."
       ],
       "started_at": "2026-04-26T11:44:59.369738+02:00",
       "completed_at": "2026-04-26T11:56:06.109004+02:00",
@@ -998,7 +998,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "PluginCard at app/src/components/plugins-manager.tsx surfaces plugin.state.available_version as an amber \"update available \u00b7 vX\" badge plus an Update button (ArrowUpCircle icon) in the card header. Update button calls pluginsApi.update; daemon failures surface inline via setUpdateError + red error block. Also added marketplace + dev distribution badges (dev shown in destructive red as ADR 0002 \u00a72 \u00a7dev tier guidance requires). Verified live via Scout: seeded telegram plugin_state with available_version='1.1.0', refreshed UI, badge + Update button rendered as designed; clicking Update produced the daemon's \"updates not configured\" error inline."
+        "PluginCard at app/src/components/plugins-manager.tsx surfaces plugin.state.available_version as an amber \"update available · vX\" badge plus an Update button (ArrowUpCircle icon) in the card header. Update button calls pluginsApi.update; daemon failures surface inline via setUpdateError + red error block. Also added marketplace + dev distribution badges (dev shown in destructive red as ADR 0002 §2 §dev tier guidance requires). Verified live via Scout: seeded telegram plugin_state with available_version='1.1.0', refreshed UI, badge + Update button rendered as designed; clicking Update produced the daemon's \"updates not configured\" error inline."
       ],
       "started_at": "2026-04-26T11:56:06.314487+02:00",
       "completed_at": "2026-04-26T11:56:16.747588+02:00",
@@ -1009,7 +1009,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Scope reframed: rather than rebuild the OAuth-heavy Calendar plugin under TinyGo (multi-week port that doesn't exercise anything new), built the publisher tooling and an end-to-end test that rounds the entire pipeline. Three artifacts: cmd/nomi-publish/ CLI + internal/plugins/publisher/ library (BuildCatalog: scans signed bundles, derives Entry rows, signs catalog with root key, deterministic across runs); internal/api/marketplace_e2e_test.go (TestMarketplace_EndToEnd) \u2014 builds v1 echo bundle \u2192 publisher.BuildCatalog \u2192 httptest mirror serving index.json + bundle bytes \u2192 daemon API install via URL \u2192 tool execute \u2192 publisher rebuilds v2 \u2192 catalog rev \u2192 update.Scan flags \u2192 POST /update \u2192 swap \u2192 tool execute on v2. Whole 29-package suite green. Plus the UI side now lets a user discover (Browse marketplace), install (Install plugin dialog), see updates (badge + Update button), and uninstall \u2014 all wired and Scout-verified live."
+        "Scope reframed: rather than rebuild the OAuth-heavy Calendar plugin under TinyGo (multi-week port that doesn't exercise anything new), built the publisher tooling and an end-to-end test that rounds the entire pipeline. Three artifacts: cmd/nomi-publish/ CLI + internal/plugins/publisher/ library (BuildCatalog: scans signed bundles, derives Entry rows, signs catalog with root key, deterministic across runs); internal/api/marketplace_e2e_test.go (TestMarketplace_EndToEnd) — builds v1 echo bundle → publisher.BuildCatalog → httptest mirror serving index.json + bundle bytes → daemon API install via URL → tool execute → publisher rebuilds v2 → catalog rev → update.Scan flags → POST /update → swap → tool execute on v2. Whole 29-package suite green. Plus the UI side now lets a user discover (Browse marketplace), install (Install plugin dialog), see updates (badge + Update button), and uninstall — all wired and Scout-verified live."
       ],
       "started_at": "2026-04-26T11:56:17.308276+02:00",
       "completed_at": "2026-04-26T11:56:30.942744+02:00",
@@ -1031,7 +1031,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "app/src/components/assistant-bindings-panel.tsx \u2014 new AssistantBindingsPanel component rendered inside the Assistant edit dialog. Lists existing bindings with plugin name + role + primary marker + disabled badge; gracefully flags orphaned bindings when a connection is deleted elsewhere. \"Bind a connection\" flow is a 3-step picker (plugin \u2192 connection \u2192 role) that filters out already-bound (connection, role) pairs. First binding for each (plugin, role) group is auto-marked primary so inbound routing is unambiguous without user ceremony. Star button promotes a non-primary binding to primary; trash button removes. Driven by React Query (useQuery for plugins + bindings, useMutation for upsert/delete with cache invalidation). Integrated into assistant-manager.tsx's edit form behind an assistant?.id guard with a \"Save the assistant first\" hint for new assistants. Frontend tsc/lint/20-vitest/vite-build clean."
+        "app/src/components/assistant-bindings-panel.tsx — new AssistantBindingsPanel component rendered inside the Assistant edit dialog. Lists existing bindings with plugin name + role + primary marker + disabled badge; gracefully flags orphaned bindings when a connection is deleted elsewhere. \"Bind a connection\" flow is a 3-step picker (plugin → connection → role) that filters out already-bound (connection, role) pairs. First binding for each (plugin, role) group is auto-marked primary so inbound routing is unambiguous without user ceremony. Star button promotes a non-primary binding to primary; trash button removes. Driven by React Query (useQuery for plugins + bindings, useMutation for upsert/delete with cache invalidation). Integrated into assistant-manager.tsx's edit form behind an assistant?.id guard with a \"Save the assistant first\" hint for new assistants. Frontend tsc/lint/20-vitest/vite-build clean."
       ],
       "started_at": "2026-04-24T22:39:25.890179+02:00",
       "completed_at": "2026-04-24T22:41:20.609819+02:00",
@@ -1145,7 +1145,7 @@
       "path": "",
       "owner": "claude-code",
       "evidence": [
-        "app/src-tauri/entitlements.plist (hardened-runtime + JIT/unsigned-mem for WKWebView+wasmhost, library-validation off, network.client/server). tauri.conf.json bundle.macOS.{entitlements, minimumSystemVersion: 11.0}. Workflow already passes APPLE_CERTIFICATE/APPLE_SIGNING_IDENTITY/APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID env vars; new conditional verification step runs codesign --verify and spctl --assess to fail the release if signing silently skipped. cargo check + tests + actionlint clean. Apple Developer ID cert procurement remains a real-world prerequisite \u2014 runbook captured in signing-10."
+        "app/src-tauri/entitlements.plist (hardened-runtime + JIT/unsigned-mem for WKWebView+wasmhost, library-validation off, network.client/server). tauri.conf.json bundle.macOS.{entitlements, minimumSystemVersion: 11.0}. Workflow already passes APPLE_CERTIFICATE/APPLE_SIGNING_IDENTITY/APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID env vars; new conditional verification step runs codesign --verify and spctl --assess to fail the release if signing silently skipped. cargo check + tests + actionlint clean. Apple Developer ID cert procurement remains a real-world prerequisite — runbook captured in signing-10."
       ],
       "started_at": "2026-04-27T23:54:10.010512+02:00",
       "completed_at": "2026-04-27T23:55:55.631763+02:00",
@@ -1200,7 +1200,7 @@
       "path": "",
       "owner": "claude-code",
       "evidence": [
-        "docs/runbooks/signing-certs.md: at-a-glance table of all 3 identities + cadences + secrets; section 1 Apple Developer ID (5y, T-90 rotation, leaked + expired-during-release playbooks); section 2 Windows EV/OV (T-90 rotation, EV-via-HSM stub, leaked playbook); section 3 Ed25519 update key (dev vs prod custody, dev\u2192prod cutover, leak playbook with forced-reinstall reality, lost-key playbook); calendar reminder templates; post-rotation verification checklist. dev-keys/README.md cross-links to the runbook."
+        "docs/runbooks/signing-certs.md: at-a-glance table of all 3 identities + cadences + secrets; section 1 Apple Developer ID (5y, T-90 rotation, leaked + expired-during-release playbooks); section 2 Windows EV/OV (T-90 rotation, EV-via-HSM stub, leaked playbook); section 3 Ed25519 update key (dev vs prod custody, dev→prod cutover, leak playbook with forced-reinstall reality, lost-key playbook); calendar reminder templates; post-rotation verification checklist. dev-keys/README.md cross-links to the runbook."
       ],
       "started_at": "2026-04-28T07:58:47.185352+02:00",
       "completed_at": "2026-04-28T08:03:54.799886+02:00",
@@ -1222,7 +1222,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Shipped alongside slack-01 in the same internal/plugins/slack/plugin.go. Channel role semantics: DM + @mention \u2192 Run; Conversation find-or-create keyed on channel_id:thread_ts preserves threading across multi-turn exchanges; Channel.Send posts via slack.MsgOptionTS to reply inside the correct thread. Block Kit interactive approval buttons are a polish follow-up (slack-03 / a future polish task); for v1 the plain-text reply path covers the approval resolution use case end-to-end. Identity allowlist + first-contact handling inherited from the shared Plugin type. Backend sweep green."
+        "Shipped alongside slack-01 in the same internal/plugins/slack/plugin.go. Channel role semantics: DM + @mention → Run; Conversation find-or-create keyed on channel_id:thread_ts preserves threading across multi-turn exchanges; Channel.Send posts via slack.MsgOptionTS to reply inside the correct thread. Block Kit interactive approval buttons are a polish follow-up (slack-03 / a future polish task); for v1 the plain-text reply path covers the approval resolution use case end-to-end. Identity allowlist + first-contact handling inherited from the shared Plugin type. Backend sweep green."
       ],
       "started_at": "2026-04-24T23:10:30.232783+02:00",
       "completed_at": "2026-04-24T23:10:35.654449+02:00",
@@ -1263,12 +1263,21 @@
       "completed_at": "2026-04-23T09:48:05.604935+02:00",
       "elapsed_minutes": 4
     },
-    "task-assistant-builder-\u2014-capability-ceiling-and-policy-coherence": {
-      "status": "in_progress",
+    "task-activation-under-2-minutes:-openai/anthropic-fast-path-+-auto-created-code-reviewer": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-assistant-builder-—-capability-ceiling-and-policy-coherence": {
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "already implemented: ceiling validation in internal/permissions/ceiling.go and API handling in internal/api/assistants.go"
+      ],
       "started_at": "2026-05-05T10:49:55.024902+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-05T19:20:49.463413+02:00",
+      "elapsed_minutes": 510
     },
     "task-assistant-templates-library": {
       "status": "done",
@@ -1291,6 +1300,11 @@
       "started_at": "2026-04-24T16:39:07.390828+02:00",
       "completed_at": "2026-04-24T16:46:08.620425+02:00",
       "elapsed_minutes": 7
+    },
+    "task-auth-+-endpoint-cache-invalidation-on-401,-daemon-restart-resilience": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
     },
     "task-backend-core-test-coverage": {
       "status": "done",
@@ -1325,6 +1339,11 @@
       "completed_at": "2026-05-05T10:46:51.929281+02:00",
       "elapsed_minutes": 0
     },
+    "task-changelog.md-update-for-v0.1.4-(or-v0.2.0)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-channel-identity-allowlist": {
       "status": "done",
       "path": "",
@@ -1336,18 +1355,28 @@
       "completed_at": "2026-05-04T14:29:25.919376+02:00",
       "elapsed_minutes": 3
     },
+    "task-chat-input-ux:-textarea,-ime-composition,-multiline-send-semantics,-scroll-race": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-cognitive-stack-library-fit-assessment:-olymp-/-mnemos-/-chronos": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-collaborative-planning-(abundly-inspired)": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Closed as superseded \u2014 V1.2 acceptance criteria shipped via granular spec features extracted later: task-multi-step-planning (LLM decomposes goal into StepDefinitions with ExpectedTool/ExpectedCapability), task-dynamic-tool-routing (StepDefinition.ExpectedTool consulted at runtime, schema validation), task-plan-approval-via-signal-channel (replaces 500ms poll), task-step-retry-wiring, task-run-pause/resume \u2014 all done. Runtime exposes plan_review state and /runs/:id/plan/approve + /runs/:id/plan/edit per CLAUDE.md. Same close-as-superseded pattern as github-02-tools. The umbrella's \"Future\" section (plan graph view, branching runs, evolving preferences via Mnemos, preference suggestions UI) is explicitly deferred in the spec text itself; if pursued they should land via roady_review_spec as their own V1.3 spec entries to keep events.jsonl scope-honest, rather than smuggled under V1.2."
+        "Closed as superseded — V1.2 acceptance criteria shipped via granular spec features extracted later: task-multi-step-planning (LLM decomposes goal into StepDefinitions with ExpectedTool/ExpectedCapability), task-dynamic-tool-routing (StepDefinition.ExpectedTool consulted at runtime, schema validation), task-plan-approval-via-signal-channel (replaces 500ms poll), task-step-retry-wiring, task-run-pause/resume — all done. Runtime exposes plan_review state and /runs/:id/plan/approve + /runs/:id/plan/edit per CLAUDE.md. Same close-as-superseded pattern as github-02-tools. The umbrella's \"Future\" section (plan graph view, branching runs, evolving preferences via Mnemos, preference suggestions UI) is explicitly deferred in the spec text itself; if pursued they should land via roady_review_spec as their own V1.3 spec entries to keep events.jsonl scope-honest, rather than smuggled under V1.2."
       ],
       "started_at": "2026-04-28T15:05:46.023666+02:00",
       "completed_at": "2026-04-28T15:05:58.122889+02:00",
       "elapsed_minutes": 0
     },
-    "task-collaborative-planning-v2-\u2014-plan-graph-+-branching-+-mnemos-preferences": {
+    "task-collaborative-planning-v2-—-plan-graph-+-branching-+-mnemos-preferences": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
@@ -1358,12 +1387,22 @@
       "completed_at": "2026-05-04T13:27:50.3831+02:00",
       "elapsed_minutes": 5274
     },
+    "task-comparison-page-(docs/comparison.md)-—-goose-/-cline-/-openinterpreter-/-claude-code-/-autogpt": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-comparison-page-+-hn-show-launch-motion-+-community-kindling": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-connector-plugin-architecture": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "All 7 plugin-core sub-tasks shipped; connector\u2192plugin migration done; legacy /connectors API kept for backward compat only."
+        "All 7 plugin-core sub-tasks shipped; connector→plugin migration done; legacy /connectors API kept for backward compat only."
       ],
       "started_at": "2026-04-26T14:31:27.724785+02:00",
       "completed_at": "2026-04-26T14:31:49.193741+02:00",
@@ -1440,7 +1479,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "api.ts falls back to window.__NOMI_DEV_TOKEN__ when invoke fails. New e2e/fixtures/auth.ts reads daemon auth.token, injects via addInitScript, exposes authed APIRequestContext with seedAssistant/seedRun/waitForRun helpers. Rewrote chat.spec.ts (3 strict tests), assistants.spec.ts (3 strict CRUD tests), events-and-settings.spec.ts (4 tests asserting run.created surfaces in <2s and connectors render), health.spec.ts (tighter badge + tablist checks). New a11y.spec.ts with @axe-core/playwright asserting zero critical/serious violations across all 7 tabs. Scoped eslint React rules out of e2e/ (fixture `use` misfires). 19 Playwright tests parse via --list. tsc + lint + vitest + go test all clean. Playwright suite itself requires nomid running on :8080 to execute \u2014 documented in fixture error message."
+        "api.ts falls back to window.__NOMI_DEV_TOKEN__ when invoke fails. New e2e/fixtures/auth.ts reads daemon auth.token, injects via addInitScript, exposes authed APIRequestContext with seedAssistant/seedRun/waitForRun helpers. Rewrote chat.spec.ts (3 strict tests), assistants.spec.ts (3 strict CRUD tests), events-and-settings.spec.ts (4 tests asserting run.created surfaces in \u003c2s and connectors render), health.spec.ts (tighter badge + tablist checks). New a11y.spec.ts with @axe-core/playwright asserting zero critical/serious violations across all 7 tabs. Scoped eslint React rules out of e2e/ (fixture `use` misfires). 19 Playwright tests parse via --list. tsc + lint + vitest + go test all clean. Playwright suite itself requires nomid running on :8080 to execute — documented in fixture error message."
       ],
       "started_at": "2026-04-24T13:47:51.164505+02:00",
       "completed_at": "2026-04-24T13:54:52.268186+02:00",
@@ -1457,7 +1496,7 @@
       "completed_at": "2026-05-05T08:12:11.022448+02:00",
       "elapsed_minutes": 1060
     },
-    "task-error-message-audit-\u2014-plain-language,-actionable,-non-technical": {
+    "task-error-message-audit-—-plain-language,-actionable,-non-technical": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
@@ -1473,11 +1512,16 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Added @tanstack/react-query, centralized queryKeys (lib/query-keys.ts), EventProvider at app root (providers/event-provider.tsx) with single Tauri SSE subscription and event-type\u2192invalidation mapping (run./step./approval./plan./memory./connector.*). useEventConnection context hook exposes SSE state to children. Converted ApprovalPanel, MemoryInspector, EventLog from setInterval polling to useQuery with 30-60s safety-net refetch. Remaining: ChatInterface still polls chat details (deferred \u2014 deeper refactor). tsc + lint + vitest (13/13) all clean."
+        "Added @tanstack/react-query, centralized queryKeys (lib/query-keys.ts), EventProvider at app root (providers/event-provider.tsx) with single Tauri SSE subscription and event-type→invalidation mapping (run./step./approval./plan./memory./connector.*). useEventConnection context hook exposes SSE state to children. Converted ApprovalPanel, MemoryInspector, EventLog from setInterval polling to useQuery with 30-60s safety-net refetch. Remaining: ChatInterface still polls chat details (deferred — deeper refactor). tsc + lint + vitest (13/13) all clean."
       ],
       "started_at": "2026-04-24T13:23:46.239719+02:00",
       "completed_at": "2026-04-24T13:29:19.813839+02:00",
       "elapsed_minutes": 5
+    },
+    "task-final-llm-conclusion-must-render-as-chat-bubble,-not-be-hidden-in-thinkingblock": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
     },
     "task-first-run-wizard": {
       "status": "done",
@@ -1561,7 +1605,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Superseded by docs/adr/0001-plugin-architecture.md \u2014 Gmail and Calendar re-file as independent plugins after the Plugin Architecture Core Refactor lands.",
+        "Superseded by docs/adr/0001-plugin-architecture.md — Gmail and Calendar re-file as independent plugins after the Plugin Architecture Core Refactor lands.",
         "All 6 sub-tasks shipped: gmail-01-oauth-shared, gmail-02-tools (this session), gmail-03-triggers (this session), calendar-01-providers, calendar-02-tools, calendar-03-triggers (this session). Shared google.OAuthManager backs both plugins."
       ],
       "started_at": "2026-04-26T14:33:24.257759+02:00",
@@ -1579,6 +1623,16 @@
       "completed_at": "2026-04-24T15:33:31.073748+02:00",
       "elapsed_minutes": 1
     },
+    "task-hero-video-accessibility-+-comprehension-overhaul": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-landing-site-reposition-to-match-readme-coding-agent-wedge": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-llm-provider-configuration": {
       "status": "done",
       "path": "",
@@ -1595,11 +1649,16 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Completed macOS menu bar integration wiring: tray menu actions handled in App (new-chat resets chat detail via resetToken, settings opens settings tab, pause-agents pauses active runs via runsApi.pause). Existing Rust tray provides New Chat/Open Nomi/Pause All Agents/Settings/Quit menu in app/src-tauri/src/main.rs. Frontend validated with npm run lint && npm run test:unit."
+        "Completed macOS menu bar integration wiring: tray menu actions handled in App (new-chat resets chat detail via resetToken, settings opens settings tab, pause-agents pauses active runs via runsApi.pause). Existing Rust tray provides New Chat/Open Nomi/Pause All Agents/Settings/Quit menu in app/src-tauri/src/main.rs. Frontend validated with npm run lint \u0026\u0026 npm run test:unit."
       ],
       "started_at": "2026-04-24T15:39:40.926038+02:00",
       "completed_at": "2026-04-24T15:42:04.989316+02:00",
       "elapsed_minutes": 2
+    },
+    "task-make-plan-review-real:-multi-step-planning-+-llm-integration-+-dynamic-tool-routing": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
     },
     "task-memory-system-(mnemos)": {
       "status": "done",
@@ -1623,12 +1682,17 @@
       "completed_at": "2026-04-24T15:14:51.321407+02:00",
       "elapsed_minutes": 1
     },
+    "task-mnemos-integration-—-revised-feasibility-assessment": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-multi-step-planning": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "internal/runtime/planner.go decomposes goals via LLM. Prompt lists every registered tool with a one-line description; LLM returns JSON {steps:[{title, description, tool}]}. Parser tolerates markdown fences + leading/trailing prose. Validation refuses plans whose steps reference unregistered tools (prompt-injection guard); returns nil on any parse/validation failure so planSteps falls back to legacy single-step shape. Maxes at 10 steps. End-to-end test (TestMultiStepPlannerProducesMultipleSteps) asserts 2-step plan \u2192 2 StepDefinitions \u2192 both reach StepDone. 6 planner unit tests for parse/prompt/fence-strip. Per-step input wired (planner step description becomes llm.chat prompt). Schema-validation of per-tool inputs deferred to #34."
+        "internal/runtime/planner.go decomposes goals via LLM. Prompt lists every registered tool with a one-line description; LLM returns JSON {steps:[{title, description, tool}]}. Parser tolerates markdown fences + leading/trailing prose. Validation refuses plans whose steps reference unregistered tools (prompt-injection guard); returns nil on any parse/validation failure so planSteps falls back to legacy single-step shape. Maxes at 10 steps. End-to-end test (TestMultiStepPlannerProducesMultipleSteps) asserts 2-step plan → 2 StepDefinitions → both reach StepDone. 6 planner unit tests for parse/prompt/fence-strip. Per-step input wired (planner step description becomes llm.chat prompt). Schema-validation of per-tool inputs deferred to #34."
       ],
       "started_at": "2026-04-24T14:16:15.412012+02:00",
       "completed_at": "2026-04-24T14:23:03.729165+02:00",
@@ -1667,7 +1731,7 @@
       "completed_at": "2026-04-28T09:14:12.970117+02:00",
       "elapsed_minutes": 0
     },
-    "task-onboarding-polish-\u2014-ceiling-defaults,-outcome-first-connectors,-first-task-verification": {
+    "task-onboarding-polish-—-ceiling-defaults,-outcome-first-connectors,-first-task-verification": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
@@ -1678,18 +1742,23 @@
       "completed_at": "2026-05-05T08:14:19.449891+02:00",
       "elapsed_minutes": 1
     },
+    "task-onboarding-recovery-defaults:-replace-skip/continue-anyway-escape-hatches": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-per-capability-granular-permissions-(stretch)": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "domain.PermissionRule gained optional Constraints map[string]any (JSON). permissions.Engine.MatchingRule returns the matched rule so callers can access constraints; Evaluate is implemented in terms of it. runtime/execution.go merges rule.Constraints into the tool input for each step, protecting reserved keys (workspace_root, command). Frontend types add constraints?: Record<string, unknown>; assistant-manager renders an allowed_binaries editor for command.exec+allow rules. New tests: permissions/constraints_test.go (matching rule + constraint round-trip) and runtime/constraints_test.go (merge plumbing + reserved-key protection). Connector manifest (ConnectorManifest.Permissions []string) left unchanged \u2014 deferred to when a concrete connector needs its own constraints. tsc + eslint + vitest + go test -race all green."
+        "domain.PermissionRule gained optional Constraints map[string]any (JSON). permissions.Engine.MatchingRule returns the matched rule so callers can access constraints; Evaluate is implemented in terms of it. runtime/execution.go merges rule.Constraints into the tool input for each step, protecting reserved keys (workspace_root, command). Frontend types add constraints?: Record\u003cstring, unknown\u003e; assistant-manager renders an allowed_binaries editor for command.exec+allow rules. New tests: permissions/constraints_test.go (matching rule + constraint round-trip) and runtime/constraints_test.go (merge plumbing + reserved-key protection). Connector manifest (ConnectorManifest.Permissions []string) left unchanged — deferred to when a concrete connector needs its own constraints. tsc + eslint + vitest + go test -race all green."
       ],
       "started_at": "2026-04-24T13:29:21.046086+02:00",
       "completed_at": "2026-04-24T13:33:36.340543+02:00",
       "elapsed_minutes": 4
     },
-    "task-permission-&-approval-system": {
+    "task-permission-\u0026-approval-system": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
@@ -1705,7 +1774,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Implemented plain-language approval copy module in app/src/lib/approval-copy.ts and integrated it into both chat and approvals views. Added irreversible-action 2s approve delay in approval dialogs, raw-details toggle persisted via localStorage in ApprovalPanel, and unit tests in app/src/lib/__tests__/approval-copy.test.ts. Verified with npm run lint && npm run test:unit."
+        "Implemented plain-language approval copy module in app/src/lib/approval-copy.ts and integrated it into both chat and approvals views. Added irreversible-action 2s approve delay in approval dialogs, raw-details toggle persisted via localStorage in ApprovalPanel, and unit tests in app/src/lib/__tests__/approval-copy.test.ts. Verified with npm run lint \u0026\u0026 npm run test:unit."
       ],
       "started_at": "2026-04-24T15:33:31.096796+02:00",
       "completed_at": "2026-04-24T15:36:58.901246+02:00",
@@ -1766,6 +1835,11 @@
       "completed_at": "2026-05-05T10:30:07.211365+02:00",
       "elapsed_minutes": 13
     },
+    "task-plugins-manager:-drop-5s/10s-polling,-wire-to-plugin-events": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-plugins-tab-implementation": {
       "status": "done",
       "path": "",
@@ -1777,6 +1851,16 @@
       "completed_at": "2026-04-24T15:30:34.663951+02:00",
       "elapsed_minutes": 1
     },
+    "task-promote-cognitive-stack-libraries-(statekit,-mnemos,-scout,-roady)-as-the-oss-moat": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-refactor-chat-interface.tsx-into-chatlist-/-chatdetail-/-chatcomposer": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-remote-assistant-templates-marketplace": {
       "status": "done",
       "path": "",
@@ -1787,6 +1871,16 @@
       "started_at": "2026-05-05T08:15:35.503449+02:00",
       "completed_at": "2026-05-05T10:15:53.529372+02:00",
       "elapsed_minutes": 120
+    },
+    "task-replace-native-`\u003cselect\u003e`-with-shadcn-select-component-for-focus-ring-parity": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-reposition-v0.2-around-coding-agent-icp-(\"local-first-claude-code\")": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
     },
     "task-rest-api-(gin)": {
       "status": "done",
@@ -1826,7 +1920,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "engine.go 1109\u2192511 LOC; split into lifecycle.go (276), execution.go (199), transitions.go (122), permissions.go (61). Package-level doc comment explains the file layout. No signatures changed; go build + go test -race across all 8 packages pass unchanged."
+        "engine.go 1109→511 LOC; split into lifecycle.go (276), execution.go (199), transitions.go (122), permissions.go (61). Package-level doc comment explains the file layout. No signatures changed; go build + go test -race across all 8 packages pass unchanged."
       ],
       "started_at": "2026-04-24T13:13:06.142549+02:00",
       "completed_at": "2026-04-24T13:17:59.529102+02:00",
@@ -1854,6 +1948,11 @@
       "completed_at": "2026-04-24T16:38:50.129752+02:00",
       "elapsed_minutes": 33
     },
+    "task-scope-discipline:-cut-overhang,-stop-polling,-prune-e2e-journeys-to-wedge-icp": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
     "task-secret-redaction-in-frontend": {
       "status": "done",
       "path": "",
@@ -1870,7 +1969,7 @@
       "path": "",
       "owner": "claude-code",
       "evidence": [
-        "All 10 decomposed sub-tasks (signing-01 through signing-10) complete. Code-only deliverables shipped: --version flag + /version endpoint + About panel; Ed25519 dev keypair + Tauri updater plugin; LatestManifest + useUpdater hook + UpdateBanner with 24h sticky defer; .github/workflows/release.yml (tag-driven matrix, draft release, signed/notarized macOS, signed Windows, AppImage+.deb, aggregated SHA256SUMS); homebrew-tap + scoop-bucket templates with auto-bump PR jobs; .github/workflows/update-e2e.yml; docs/runbooks/signing-certs.md. Activation gated on real-world cert procurement (Apple Developer ID $99/yr, Windows EV/OV $200-700/yr) \u2014 runbook covers procurement + rotation + incident response."
+        "All 10 decomposed sub-tasks (signing-01 through signing-10) complete. Code-only deliverables shipped: --version flag + /version endpoint + About panel; Ed25519 dev keypair + Tauri updater plugin; LatestManifest + useUpdater hook + UpdateBanner with 24h sticky defer; .github/workflows/release.yml (tag-driven matrix, draft release, signed/notarized macOS, signed Windows, AppImage+.deb, aggregated SHA256SUMS); homebrew-tap + scoop-bucket templates with auto-bump PR jobs; .github/workflows/update-e2e.yml; docs/runbooks/signing-certs.md. Activation gated on real-world cert procurement (Apple Developer ID $99/yr, Windows EV/OV $200-700/yr) — runbook covers procurement + rotation + incident response."
       ],
       "started_at": "2026-04-28T08:04:11.78615+02:00",
       "completed_at": "2026-04-28T08:04:24.391238+02:00",
@@ -1936,7 +2035,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Implemented connection-scoped Telegram SendMessage: Connector interface and registry now pass connectionID, Telegram SendMessage enforces explicit connection lookup and fails if missing/disabled/token missing, handleMessage records runID->connectionID mapping, and added telegram connector tests with stub API to verify routing and failure modes."
+        "Implemented connection-scoped Telegram SendMessage: Connector interface and registry now pass connectionID, Telegram SendMessage enforces explicit connection lookup and fails if missing/disabled/token missing, handleMessage records runID-\u003econnectionID mapping, and added telegram connector tests with stub API to verify routing and failure modes."
       ],
       "started_at": "2026-04-24T15:25:35.573227+02:00",
       "completed_at": "2026-04-24T15:28:53.179146+02:00",
@@ -1947,7 +2046,7 @@
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Closed as superseded after spec reconciliation. The v1 mechanism the umbrella describes is shipped via the plugin-lifecycle feature: plugin-lifecycle-06-signing-verify (Ed25519 detached-signature verification), plugin-lifecycle-09-nomihub-catalog (signed catalog format + scaffold repo), plugin-lifecycle-10-update-flow (6h refresh + cache, offline fallback), plugin-lifecycle-13-ui-marketplace-browser (browse-grid component at app/src/components/marketplace-browser-dialog.tsx), plugin-lifecycle-15-dogfood-marketplace-calendar (install flow validated end-to-end with the Calendar plugin). Bundled assistant templates ship via task-assistant-templates-library (done) \u2014 six curated AssistantDefinitions in templates/built-in.json. The remaining genuine delta \u2014 assistant templates as a remote content type alongside plugins (remote_templates store, \"from remote template\" install endpoint creating a draft Assistant, parallel Browse-Templates dialog on the Assistants tab, install telemetry opt-in) \u2014 is future work that should land via roady_review_spec as its own V1.3+ spec entry, not smuggled under v1. Same close-as-superseded pattern applied to task-collaborative-planning-(abundly-inspired) and github-02-tools earlier this session."
+        "Closed as superseded after spec reconciliation. The v1 mechanism the umbrella describes is shipped via the plugin-lifecycle feature: plugin-lifecycle-06-signing-verify (Ed25519 detached-signature verification), plugin-lifecycle-09-nomihub-catalog (signed catalog format + scaffold repo), plugin-lifecycle-10-update-flow (6h refresh + cache, offline fallback), plugin-lifecycle-13-ui-marketplace-browser (browse-grid component at app/src/components/marketplace-browser-dialog.tsx), plugin-lifecycle-15-dogfood-marketplace-calendar (install flow validated end-to-end with the Calendar plugin). Bundled assistant templates ship via task-assistant-templates-library (done) — six curated AssistantDefinitions in templates/built-in.json. The remaining genuine delta — assistant templates as a remote content type alongside plugins (remote_templates store, \"from remote template\" install endpoint creating a draft Assistant, parallel Browse-Templates dialog on the Assistants tab, install telemetry opt-in) — is future work that should land via roady_review_spec as its own V1.3+ spec entry, not smuggled under v1. Same close-as-superseded pattern applied to task-collaborative-planning-(abundly-inspired) and github-02-tools earlier this session."
       ],
       "started_at": "2026-04-28T15:39:26.497748+02:00",
       "completed_at": "2026-04-28T15:39:41.013265+02:00",
@@ -1975,16 +2074,82 @@
       "completed_at": "2026-05-05T08:15:17.859644+02:00",
       "elapsed_minutes": 0
     },
-    "task-ui-nomenclature:-runs-\u2192-tasks": {
+    "task-ui-nomenclature:-runs-→-tasks": {
       "status": "done",
       "path": "",
       "owner": "ai-agent",
       "evidence": [
-        "Added UI label mapping in app/src/lib/labels.ts with tests in app/src/lib/__tests__/labels.test.ts; updated visible copy to task terminology in plan-review actions and assistant delete warning; updated e2e selectors; verified with npm run lint && npm run test:unit."
+        "Added UI label mapping in app/src/lib/labels.ts with tests in app/src/lib/__tests__/labels.test.ts; updated visible copy to task terminology in plan-review actions and assistant delete warning; updated e2e selectors; verified with npm run lint \u0026\u0026 npm run test:unit."
       ],
       "started_at": "2026-04-24T15:15:02.545637+02:00",
       "completed_at": "2026-04-24T15:16:46.60119+02:00",
       "elapsed_minutes": 1
+    },
+    "task-unified-approval-surface-with-plain-english-capability-copy": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-v1-hardening-01-error-envelope": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Canonical error envelope baseline implemented: shared responder + structured fields (code/title/message/action) with compatibility `error` key; migrated core runs, remote templates, and email trigger rules endpoints; API tests passing."
+      ],
+      "started_at": "2026-05-05T19:30:09.79122+02:00",
+      "completed_at": "2026-05-05T19:34:03.109944+02:00",
+      "elapsed_minutes": 3
+    },
+    "task-v1-hardening-02-roady-governance": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Added scripts/roady_state_guard.py to detect task-ID drift (dash normalization, stale in_progress, duplicate normalized IDs) and Makefile target `make roady-guard`; refined pass criteria to fail only actionable drift."
+      ],
+      "started_at": "2026-05-05T19:34:09.231397+02:00",
+      "completed_at": "2026-05-05T19:35:58.504365+02:00",
+      "elapsed_minutes": 1
+    },
+    "task-v1-hardening-03-observability": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Added request ID middleware + structured JSON access logs (internal/api/logging.go, router wiring) and documented SLIs/dashboards/alert baseline in docs/observability-baseline.md."
+      ],
+      "started_at": "2026-05-05T19:36:15.495853+02:00",
+      "completed_at": "2026-05-05T19:37:54.729359+02:00",
+      "elapsed_minutes": 1
+    },
+    "task-v1-hardening-04-reliability-evals": {
+      "status": "pending",
+      "path": "",
+      "owner": "quality",
+      "elapsed_minutes": 0
+    },
+    "task-v1-hardening-05-ux-coherence": {
+      "status": "pending",
+      "path": "",
+      "owner": "ux",
+      "elapsed_minutes": 0
+    },
+    "task-v1-hardening-06-security-consistency": {
+      "status": "pending",
+      "path": "",
+      "owner": "security",
+      "elapsed_minutes": 0
+    },
+    "task-v1-hardening-program-(multi-expert-30/60/90)": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "task-verify-and-pin-lucide-react-package-version": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
     },
     "tauri-init": {
       "status": "done",
@@ -2059,6 +2224,5 @@
       "elapsed_minutes": 3
     }
   },
-  "updated_at": "2026-05-05T10:53:32.708433+02:00",
-  "in_progress": []
+  "updated_at": "2026-05-05T19:37:54.72936+02:00"
 }

@@ -72,6 +72,7 @@ type RouterConfig struct {
 func NewRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(requestIDMiddleware())
 	r.Use(accessLogMiddleware())
 	r.Use(CORSMiddleware())
 	if cfg.AuthTokenStore != nil {

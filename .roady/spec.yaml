@@ -1142,5 +1142,44 @@ features:
 
         Lower priority — defer until next time we touch this file for a real change so the refactor doesn't spend a sprint with zero user-visible payoff.
       requirements: []
+    - id: v1-hardening-program-(multi-expert-30/60/90)
+      title: V1 Hardening Program (Multi-Expert 30/60/90)
+      description: |-
+        End-to-end V1 hardening program based on multi-expert review. Prioritize trust, reliability, explainability, and operational readiness over net-new feature breadth. Scope and sequence:
+
+        1) Canonical error envelope completion
+        - Enforce one backend/frontend error shape everywhere: code/title/message/action (+ details).
+        - Remove legacy ad-hoc error payloads and normalize rendering.
+        - Acceptance: deterministic user-facing error UX across all major flows.
+
+        2) Roady/state governance normalization
+        - Eliminate task ID drift/special-character transition issues.
+        - Add safeguards/automation for transition integrity and stale in_progress cleanup.
+        - Acceptance: accurate roadmap telemetry and no ambiguous task state.
+
+        3) Observability baseline
+        - Structured logs, key SLIs, and incident-grade dashboards/playbooks.
+        - Focus areas: daemon health, plugin lifecycle jobs, event streaming reliability.
+        - Acceptance: top operational signals visible and actionable.
+
+        4) Reliability eval suite
+        - Planner/tool execution eval harness with failure taxonomy.
+        - Add cross-plugin contract tests and end-to-end failure-mode scenarios.
+        - Acceptance: measurable reliability improvements and regression detection.
+
+        5) UX coherence pass
+        - Assistant builder/policy/approvals surfaces: progressive disclosure + plain-language guidance.
+        - Strengthen policy-ceiling guidance and actionable feedback loops.
+        - Acceptance: reduced confusion and higher task-success clarity.
+
+        6) Security consistency review
+        - Threat-model refresh for plugin install/update/uninstall, identity allowlists, secrets handling, and runtime tool boundaries.
+        - Acceptance: documented controls and prioritized remediation list.
+
+        30/60/90 execution frame:
+        - 30 days: error envelope completion, task-state governance fix, top 10 incident dashboards.
+        - 60 days: reliability evals + chaos-style plugin failure tests; UX coherence pass.
+        - 90 days: release hardening (security controls, runbooks, SLOs, rollback confidence) and external beta readiness gate.
+      requirements: []
 constraints: []
 version: 0.1.0
