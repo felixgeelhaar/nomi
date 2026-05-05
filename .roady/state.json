@@ -1,6 +1,6 @@
 {
   "project_id": "Nomi",
-  "version": 436,
+  "version": 444,
   "task_states": {
     "approval-flow": {
       "status": "done",
@@ -2124,26 +2124,47 @@
       "elapsed_minutes": 1
     },
     "task-v1-hardening-04-reliability-evals": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "owner": "quality",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "Added initial reliability eval harness: failure taxonomy classifier + table-driven tests in internal/runtime/evals, make target `reliability-evals`, and docs/reliability-evals.md baseline/next scenarios."
+      ],
+      "started_at": "2026-05-05T19:38:17.466433+02:00",
+      "completed_at": "2026-05-05T19:39:37.130264+02:00",
+      "elapsed_minutes": 1
     },
     "task-v1-hardening-05-ux-coherence": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "owner": "ux",
+      "owner": "ai-agent",
+      "evidence": [
+        "UX coherence criteria already implemented in assistant manager: progressive disclosure for policy/capability coupling, inline plain-language violation hints, highlight/scroll-to capability section, and one-click suggested capability application path."
+      ],
+      "started_at": "2026-05-05T19:39:47.73887+02:00",
+      "completed_at": "2026-05-05T19:39:55.353214+02:00",
       "elapsed_minutes": 0
     },
     "task-v1-hardening-06-security-consistency": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "owner": "security",
+      "owner": "ai-agent",
+      "evidence": [
+        "Added docs/security-consistency-review.md with threat-model boundaries, control review, prioritized remediation queue, and exit criteria for plugin lifecycle/allowlists/secrets/runtime boundaries."
+      ],
+      "started_at": "2026-05-05T19:40:09.754883+02:00",
+      "completed_at": "2026-05-05T19:40:36.332123+02:00",
       "elapsed_minutes": 0
     },
     "task-v1-hardening-program-(multi-expert-30/60/90)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Completed #1-#6 sequence: canonical error envelope baseline, Roady governance guard, observability baseline, reliability eval harness, UX coherence validation, and security consistency review docs."
+      ],
+      "started_at": "2026-05-05T19:40:57.960493+02:00",
+      "completed_at": "2026-05-05T19:41:05.41966+02:00",
       "elapsed_minutes": 0
     },
     "task-verify-and-pin-lucide-react-package-version": {
@@ -2224,5 +2245,5 @@
       "elapsed_minutes": 3
     }
   },
-  "updated_at": "2026-05-05T19:37:54.72936+02:00"
+  "updated_at": "2026-05-05T19:41:05.419661+02:00"
 }

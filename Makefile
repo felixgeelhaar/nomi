@@ -1,4 +1,4 @@
-.PHONY: all build dev test clean app-dev app-build migrate sidecar roady-guard
+.PHONY: all build dev test clean app-dev app-build migrate sidecar roady-guard reliability-evals
 
 # Build metadata injected into internal/buildinfo via -ldflags. CI overrides
 # VERSION with the release tag (e.g. VERSION=v0.2.0 make build); local builds
@@ -126,3 +126,7 @@ wasm-bench:
 # Validate Roady state/plan task-ID governance.
 roady-guard:
 	@python3 scripts/roady_state_guard.py
+
+# Run reliability eval taxonomy tests.
+reliability-evals:
+	@go test ./internal/runtime/evals/...
