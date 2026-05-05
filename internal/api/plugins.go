@@ -171,7 +171,8 @@ func (s *PluginServer) GetPluginState(c *gin.Context) {
 // v1 only exposes Enabled — distribution / installed / version are
 // managed by the install/uninstall path (lifecycle-07).
 type UpdatePluginStateRequest struct {
-	Enabled *bool `json:"enabled,omitempty"`
+	Enabled      *bool    `json:"enabled,omitempty"`
+	EnabledRoles []string `json:"enabled_roles,omitempty"`
 }
 
 // PatchPluginState applies enable/disable transitions. System plugins
@@ -225,6 +226,12 @@ func (s *PluginServer) PatchPluginState(c *gin.Context) {
 			} else {
 				_ = plug.Stop() // Stop is best-effort; persisted state already records the intent.
 			}
+		}
+	}
+	if req.EnabledRoles != nil {
+		if err := s.state.SetEnabledRoles(id, req.EnabledRoles); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 	}
 	st, err := s.state.Get(id)

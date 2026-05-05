@@ -107,8 +107,9 @@ type MemorySnapshot struct {
 }
 
 type PluginState struct {
-	ID      string `yaml:"id"`
-	Enabled bool   `yaml:"enabled"`
+	ID           string   `yaml:"id"`
+	Enabled      bool     `yaml:"enabled"`
+	EnabledRoles []string `yaml:"enabled_roles,omitempty"`
 }
 
 // Deps mirrors the seed package's bundle so cmd/nomid/main.go can pass

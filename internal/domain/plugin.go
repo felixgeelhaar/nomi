@@ -129,6 +129,7 @@ type PluginState struct {
 	Distribution         PluginDistribution `json:"distribution"`
 	Installed            bool               `json:"installed"`
 	Enabled              bool               `json:"enabled"`
+	EnabledRoles         []string           `json:"enabled_roles,omitempty"`
 	Version              string             `json:"version,omitempty"`
 	AvailableVersion     string             `json:"available_version,omitempty"`
 	SourceURL            string             `json:"source_url,omitempty"`

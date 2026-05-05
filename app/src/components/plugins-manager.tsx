@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { pluginsApi } from "@/lib/api";
 import { errorMessage } from "@/lib/utils";
@@ -570,6 +570,33 @@ function PluginCard({ plugin }: { plugin: Plugin }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["plugins"] }),
   });
 
+  const enabledRoles = useMemo(
+    () => new Set(plugin.state?.enabled_roles ?? []),
+    [plugin.state?.enabled_roles],
+  );
+  const allRoles = useMemo(() => {
+    const out: string[] = [];
+    if ((plugin.manifest.contributes.channels?.length ?? 0) > 0) out.push("channel");
+    if ((plugin.manifest.contributes.tools?.length ?? 0) > 0) out.push("tool");
+    if ((plugin.manifest.contributes.triggers?.length ?? 0) > 0) out.push("trigger");
+    if ((plugin.manifest.contributes.context_sources?.length ?? 0) > 0) out.push("context_source");
+    return out;
+  }, [plugin.manifest.contributes]);
+
+  const rolesToggle = useMutation({
+    mutationFn: (roles: string[]) => pluginsApi.setEnabledRoles(plugin.manifest.id, roles),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["plugins"] }),
+  });
+
+  const toggleRole = (role: string, on: boolean) => {
+    const next = on
+      ? [...enabledRoles, role]
+      : enabledRoles.has(role)
+        ? Array.from(enabledRoles).filter((r) => r !== role)
+        : Array.from(enabledRoles);
+    rolesToggle.mutate(next);
+  };
+
   const update = useMutation({
     mutationFn: () => pluginsApi.update(plugin.manifest.id),
     onSuccess: () => {
@@ -635,6 +662,26 @@ function PluginCard({ plugin }: { plugin: Plugin }) {
               )}
               <RolesBadges manifest={plugin.manifest} />
             </div>
+            {allRoles.length > 0 && (
+              <div className="flex flex-wrap gap-3 mt-2">
+                {allRoles.map((role) => {
+                  const isOn = enabledRoles.has(role);
+                  return (
+                    <label
+                      key={role}
+                      className="flex items-center gap-1.5 text-xs cursor-pointer"
+                    >
+                      <ToggleSwitch
+                        checked={isOn}
+                        onChange={(on) => toggleRole(role, on)}
+                        disabled={rolesToggle.isPending}
+                      />
+                      <span className="capitalize">{role.replace("_", " ")}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
             {plugin.manifest.description && (
               <p className="text-xs text-muted-foreground mt-1">{plugin.manifest.description}</p>
             )}

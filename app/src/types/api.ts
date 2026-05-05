@@ -130,6 +130,7 @@ export interface PluginState {
   distribution: PluginDistribution;
   installed: boolean;
   enabled: boolean;
+  enabled_roles?: string[];
   version?: string;
   available_version?: string;
   source_url?: string;

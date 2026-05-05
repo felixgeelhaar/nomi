@@ -569,6 +569,12 @@ export const pluginsApi = {
       body: JSON.stringify({ enabled }),
     }),
 
+  setEnabledRoles: (pluginID: string, roles: string[]) =>
+    fetchApi<PluginState>(`/plugins/${encodeURIComponent(pluginID)}/state`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled_roles: roles }),
+    }),
+
   // Marketplace install (lifecycle-07). The daemon accepts either a
   // JSON {url} body or a multipart upload with field name `bundle`.
   // Two methods so the call site picks the right shape — bundling

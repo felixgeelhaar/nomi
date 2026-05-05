@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -83,6 +84,27 @@ func (r *PluginStateRepository) SetEnabled(pluginID string, enabled bool) error 
 	)
 	if err != nil {
 		return fmt.Errorf("update enabled: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// SetEnabledRoles replaces the enabled_roles slice. Pass nil to
+// clear the override and fall back to "all roles enabled".
+func (r *PluginStateRepository) SetEnabledRoles(pluginID string, roles []string) error {
+	enc, err := json.Marshal(roles)
+	if err != nil {
+		return fmt.Errorf("marshal enabled_roles: %w", err)
+	}
+	res, err := r.db.Exec(
+		`UPDATE plugin_state SET enabled_roles = ? WHERE plugin_id = ?`,
+		string(enc), pluginID,
+	)
+	if err != nil {
+		return fmt.Errorf("update enabled_roles: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
