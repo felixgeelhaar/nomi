@@ -1,6 +1,6 @@
 {
   "project_id": "Nomi",
-  "version": 398,
+  "version": 422,
   "task_states": {
     "approval-flow": {
       "status": "done",
@@ -1264,8 +1264,10 @@
       "elapsed_minutes": 4
     },
     "task-assistant-builder-—-capability-ceiling-and-policy-coherence": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-05T10:49:55.024902+02:00",
       "elapsed_minutes": 0
     },
     "task-assistant-templates-library": {
@@ -1302,13 +1304,25 @@
       "elapsed_minutes": 19
     },
     "task-browser-system-plugin-(tool)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented in internal/plugins/browser/"
+      ],
+      "started_at": "2026-05-05T10:47:13.104549+02:00",
+      "completed_at": "2026-05-05T10:47:25.714102+02:00",
       "elapsed_minutes": 0
     },
     "task-calendar-plugin-(tool-+-trigger)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented in internal/plugins/calendar/"
+      ],
+      "started_at": "2026-05-05T10:46:50.825752+02:00",
+      "completed_at": "2026-05-05T10:46:51.929281+02:00",
       "elapsed_minutes": 0
     },
     "task-channel-identity-allowlist": {
@@ -1400,8 +1414,14 @@
       "elapsed_minutes": 0
     },
     "task-discord-plugin-(channel-+-tool)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented in internal/plugins/discord/"
+      ],
+      "started_at": "2026-05-05T10:45:38.335136+02:00",
+      "completed_at": "2026-05-05T10:45:49.115058+02:00",
       "elapsed_minutes": 0
     },
     "task-dynamic-tool-routing": {
@@ -1438,8 +1458,14 @@
       "elapsed_minutes": 1060
     },
     "task-error-message-audit-—-plain-language,-actionable,-non-technical": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented: UserError in domain/user_error.go with Code/Title/Message/Action fields"
+      ],
+      "started_at": "2026-05-05T10:53:04.458563+02:00",
+      "completed_at": "2026-05-05T10:53:32.708433+02:00",
       "elapsed_minutes": 0
     },
     "task-event-driven-ui-cache-invalidation": {
@@ -1509,13 +1535,25 @@
       "elapsed_minutes": 0
     },
     "task-github-plugin-(tool-+-trigger)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented in internal/plugins/github/"
+      ],
+      "started_at": "2026-05-05T10:47:11.455198+02:00",
+      "completed_at": "2026-05-05T10:47:23.096682+02:00",
       "elapsed_minutes": 0
     },
     "task-gmail-plugin-(tool-+-trigger)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented in internal/plugins/gmail/"
+      ],
+      "started_at": "2026-05-05T10:46:11.796097+02:00",
+      "completed_at": "2026-05-05T10:46:13.206788+02:00",
       "elapsed_minutes": 0
     },
     "task-google-suite-connectors-(gmail-+-calendar)": {
@@ -1608,8 +1646,14 @@
       "elapsed_minutes": 32
     },
     "task-obsidian-plugin-(tool-+-context-source)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented in internal/plugins/obsidian/"
+      ],
+      "started_at": "2026-05-05T10:47:13.022591+02:00",
+      "completed_at": "2026-05-05T10:47:24.540563+02:00",
       "elapsed_minutes": 0
     },
     "task-obsidian-vault-connector": {
@@ -1701,14 +1745,26 @@
       "elapsed_minutes": 4
     },
     "task-plugin-distribution-+-lifecycle-(install/uninstall/update)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented in internal/plugins/"
+      ],
+      "started_at": "2026-05-05T10:49:26.057323+02:00",
+      "completed_at": "2026-05-05T10:49:27.303364+02:00",
       "elapsed_minutes": 0
     },
     "task-plugin-ui-reshape": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "287061d"
+      ],
+      "started_at": "2026-05-05T10:16:22.77963+02:00",
+      "completed_at": "2026-05-05T10:30:07.211365+02:00",
+      "elapsed_minutes": 13
     },
     "task-plugins-tab-implementation": {
       "status": "done",
@@ -1722,11 +1778,15 @@
       "elapsed_minutes": 1
     },
     "task-remote-assistant-templates-marketplace": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "a30520c"
+      ],
       "started_at": "2026-05-05T08:15:35.503449+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-05T10:15:53.529372+02:00",
+      "elapsed_minutes": 120
     },
     "task-rest-api-(gin)": {
       "status": "done",
@@ -1740,8 +1800,14 @@
       "elapsed_minutes": 0
     },
     "task-rich-media-channel-contract": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "OutboundMessage already implemented in roles.go, Channel.Send already accepts it"
+      ],
+      "started_at": "2026-05-05T10:48:52.950464+02:00",
+      "completed_at": "2026-05-05T10:48:54.292141+02:00",
       "elapsed_minutes": 0
     },
     "task-run-pause/resume": {
@@ -1811,9 +1877,15 @@
       "elapsed_minutes": 0
     },
     "task-slack-plugin-(channel-+-tool)": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "already implemented in internal/plugins/slack/"
+      ],
+      "started_at": "2026-05-05T10:30:28.907546+02:00",
+      "completed_at": "2026-05-05T10:33:22.841314+02:00",
+      "elapsed_minutes": 2
     },
     "task-sqlite-storage-layer": {
       "status": "done",
@@ -1987,5 +2059,5 @@
       "elapsed_minutes": 3
     }
   },
-  "updated_at": "2026-05-05T08:15:35.503449+02:00"
+  "updated_at": "2026-05-05T10:53:32.708433+02:00"
 }
