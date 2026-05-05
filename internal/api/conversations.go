@@ -34,13 +34,13 @@ func (s *ConversationServer) ListConversations(c *gin.Context) {
 	assistantID := c.Query("assistant_id")
 	connectionID := c.Query("connection_id")
 	if assistantID == "" && connectionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "assistant_id or connection_id is required"})
+		respondValidationError(c, "assistant_id or connection_id is required")
 		return
 	}
 	if assistantID != "" {
 		list, err := s.convs.ListByAssistant(assistantID, 100)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			respondInternal(c, "failed to list conversations", err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"conversations": list})
@@ -48,7 +48,7 @@ func (s *ConversationServer) ListConversations(c *gin.Context) {
 	}
 	list, err := s.convs.ListByConnection(connectionID, 100)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to list conversations", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"conversations": list})
@@ -58,12 +58,12 @@ func (s *ConversationServer) ListConversations(c *gin.Context) {
 func (s *ConversationServer) GetConversation(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 	conv, err := s.convs.GetByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		respondNotFound(c, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, conv)
@@ -75,11 +75,11 @@ func (s *ConversationServer) GetConversation(c *gin.Context) {
 func (s *ConversationServer) DeleteConversation(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		respondValidationError(c, "id is required")
 		return
 	}
 	if err := s.convs.Delete(id, nil); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to delete conversation", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "deleted"})

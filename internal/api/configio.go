@@ -38,12 +38,12 @@ func NewConfigServer(database *db.DB, secretStore secrets.Store) *ConfigServer {
 func (s *ConfigServer) Export(c *gin.Context) {
 	snap, err := configio.Export(s.deps)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to export config snapshot", err)
 		return
 	}
 	out, err := configio.Marshal(snap)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to encode config snapshot", err)
 		return
 	}
 	c.Header("Content-Disposition", `attachment; filename="nomi-config.yaml"`)
@@ -57,17 +57,17 @@ func (s *ConfigServer) Export(c *gin.Context) {
 func (s *ConfigServer) Import(c *gin.Context) {
 	body, err := c.GetRawData()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondValidationError(c, err.Error())
 		return
 	}
 	var snap configio.Snapshot
 	if err := configio.Unmarshal(body, &snap); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "parse snapshot: " + err.Error()})
+		respondValidationError(c, "parse snapshot: "+err.Error())
 		return
 	}
 	res, err := configio.Import(&snap, s.deps)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondValidationError(c, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"result": res})

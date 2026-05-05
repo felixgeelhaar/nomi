@@ -108,7 +108,7 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 		r.POST("/auth/rotate", func(c *gin.Context) {
 			next, err := store.Rotate()
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				respondInternal(c, "failed to rotate auth token", err)
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"token": next})

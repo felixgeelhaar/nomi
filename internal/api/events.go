@@ -29,7 +29,7 @@ func (s *EventServer) ListEvents(c *gin.Context) {
 
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
+		respondValidationError(c, "invalid limit")
 		return
 	}
 
@@ -40,7 +40,7 @@ func (s *EventServer) ListEvents(c *gin.Context) {
 		eventList, err = s.bus.GetAllHistory(limit)
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to list events", err)
 		return
 	}
 

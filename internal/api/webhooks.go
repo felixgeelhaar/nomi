@@ -45,14 +45,14 @@ func (s *WebhookServer) RotateSecret(c *gin.Context) {
 
 	conn, err := s.connectionRepo.GetByID(connectionID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "connection not found"})
+		respondNotFound(c, "connection not found")
 		return
 	}
 
 	// Generate a 32-byte random secret
 	secretBytes := make([]byte, 32)
 	if _, err := rand.Read(secretBytes); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate secret"})
+		respondInternal(c, "failed to generate secret", err)
 		return
 	}
 	secret := hex.EncodeToString(secretBytes)
@@ -61,7 +61,7 @@ func (s *WebhookServer) RotateSecret(c *gin.Context) {
 	key := "webhook_secret_" + connectionID
 	ref, err := secrets.StoreAsReference(s.secrets, key, secret)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store secret"})
+		respondInternal(c, "failed to store secret", err)
 		return
 	}
 
@@ -71,7 +71,7 @@ func (s *WebhookServer) RotateSecret(c *gin.Context) {
 	}
 	conn.CredentialRefs["webhook_secret"] = ref
 	if err := s.connectionRepo.Update(conn); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update connection"})
+		respondInternal(c, "failed to update connection", err)
 		return
 	}
 
@@ -86,19 +86,19 @@ func (s *WebhookServer) UpdateAllowlist(c *gin.Context) {
 		Allowlist []string `json:"allowlist"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		respondValidationError(c, "invalid request body")
 		return
 	}
 
 	conn, err := s.connectionRepo.GetByID(connectionID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "connection not found"})
+		respondNotFound(c, "connection not found")
 		return
 	}
 
 	conn.WebhookEventAllowlist = req.Allowlist
 	if err := s.connectionRepo.Update(conn); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update connection"})
+		respondInternal(c, "failed to update connection", err)
 		return
 	}
 

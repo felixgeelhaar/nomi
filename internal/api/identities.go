@@ -25,7 +25,7 @@ func (s *IdentityServer) ListIdentities(c *gin.Context) {
 	connectionID := c.Param("conn_id")
 	list, err := s.repo.ListByConnection(connectionID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to list identities", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"identities": list})
@@ -45,11 +45,11 @@ func (s *IdentityServer) CreateIdentity(c *gin.Context) {
 	connectionID := c.Param("conn_id")
 	var req CreateIdentityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondValidationError(c, err.Error())
 		return
 	}
 	if req.ExternalIdentifier == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "external_identifier is required"})
+		respondValidationError(c, "external_identifier is required")
 		return
 	}
 	ident := &domain.ChannelIdentity{
@@ -61,7 +61,7 @@ func (s *IdentityServer) CreateIdentity(c *gin.Context) {
 		Enabled:            req.Enabled,
 	}
 	if err := s.repo.Create(ident); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to create identity", err)
 		return
 	}
 	c.JSON(http.StatusCreated, ident)
@@ -82,7 +82,7 @@ func (s *IdentityServer) UpdateIdentity(c *gin.Context) {
 	connectionID := c.Param("conn_id")
 	existing, err := s.repo.ListByConnection(connectionID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to list identities", err)
 		return
 	}
 	var target *domain.ChannelIdentity
@@ -93,12 +93,12 @@ func (s *IdentityServer) UpdateIdentity(c *gin.Context) {
 		}
 	}
 	if target == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "identity not found"})
+		respondNotFound(c, "identity not found")
 		return
 	}
 	var req UpdateIdentityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondValidationError(c, err.Error())
 		return
 	}
 	if req.DisplayName != nil {
@@ -111,7 +111,7 @@ func (s *IdentityServer) UpdateIdentity(c *gin.Context) {
 		target.Enabled = *req.Enabled
 	}
 	if err := s.repo.Update(target); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to update identity", err)
 		return
 	}
 	c.JSON(http.StatusOK, target)
@@ -121,7 +121,7 @@ func (s *IdentityServer) UpdateIdentity(c *gin.Context) {
 func (s *IdentityServer) DeleteIdentity(c *gin.Context) {
 	identID := c.Param("ident_id")
 	if err := s.repo.Delete(identID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondInternal(c, "failed to delete identity", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
