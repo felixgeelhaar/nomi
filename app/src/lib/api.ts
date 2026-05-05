@@ -27,6 +27,7 @@ import type {
   CreateAssistantRequest,
   CreateMemoryRequest,
   TriggerRule,
+  RemoteTemplate,
   ApiError as ApiErrorType,
 } from "@/types/api";
 import {
@@ -445,6 +446,16 @@ export const connectorsApi = {
     fetchApi<{ status: string }>(`/connectors/${name}/config`, {
       method: "PUT",
       body: JSON.stringify(data),
+    }),
+};
+
+// Remote assistant templates marketplace
+export const remoteTemplatesApi = {
+  list: () => fetchApi<{ templates: RemoteTemplate[] }>("/remote-templates"),
+  install: (template: RemoteTemplate) =>
+    fetchApi<{ assistant_id: string; status: string }>("/remote-templates/install", {
+      method: "POST",
+      body: JSON.stringify(template),
     }),
 };
 

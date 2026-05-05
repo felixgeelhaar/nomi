@@ -28,7 +28,8 @@ import { FolderPreview } from "@/components/folder-preview";
 import type { FileNode } from "@/components/folder-preview";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { labels } from "@/lib/labels";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Download } from "lucide-react";
+import { RemoteTemplateBrowser } from "@/components/remote-template-browser";
 
 // Capability ceiling labels — only items that map to a real permission
 // engine capability (filesystem.*, command.exec, network.outgoing). Memory
@@ -215,9 +216,10 @@ function AssistantForm({
     Record<number, { tree?: FileNode; stats?: { file_count: number; dir_count: number; total_size: number }; loading: boolean }>
   >({});
   const [showAdvancedModel, setShowAdvancedModel] = useState(false);
-  const [applyingProfile, setApplyingProfile] = useState(false);
+	const [applyingProfile, setApplyingProfile] = useState(false);
+	const [showRemoteTemplates, setShowRemoteTemplates] = useState(false);
 
-  useEffect(() => {
+	useEffect(() => {
     connectorsApi
       .listConfigs()
       .then((data) => setAvailableConnectors(data.connectors.filter((c) => c.enabled)))
@@ -970,12 +972,27 @@ function AssistantForm({
             <Plus className="w-3 h-3 mr-1" />
             Add Folder
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowRemoteTemplates(true)}
+          >
+            <Download className="w-3 h-3 mr-1" />
+            Browse Remote Templates
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground">
           Folder contents will be scanned and attached to runs created by this assistant.
         </p>
       </div>
-
+      
+      {/* Remote Template Browser */}
+      <RemoteTemplateBrowser
+        open={showRemoteTemplates}
+        onOpenChange={setShowRemoteTemplates}
+      />
+      
       {/* Plugin connection bindings */}
       <div className="space-y-2">
         <div>

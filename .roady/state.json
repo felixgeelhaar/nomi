@@ -1,6 +1,6 @@
 {
   "project_id": "Nomi",
-  "version": 392,
+  "version": 398,
   "task_states": {
     "approval-flow": {
       "status": "done",
@@ -1427,11 +1427,15 @@
       "elapsed_minutes": 7
     },
     "task-email-plugin-(channel-+-tool-+-trigger)": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "Email plugin complete: IMAP/SMTP channel (email-01/02), tool role (email-03), trigger rules with typed REST API + UI editor (email-04), provider presets (email-05). All subtasks done."
+      ],
       "started_at": "2026-05-04T14:31:18.843168+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-05T08:12:11.022448+02:00",
+      "elapsed_minutes": 1060
     },
     "task-error-message-audit-—-plain-language,-actionable,-non-technical": {
       "status": "pending",
@@ -1620,9 +1624,15 @@
       "elapsed_minutes": 0
     },
     "task-onboarding-polish-—-ceiling-defaults,-outcome-first-connectors,-first-task-verification": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "Onboarding Polish complete: (1) Ceiling defaults - templates/built-in.json already has matching capabilities/policy (tasks assistant-builder-ceiling-validation + assistant-builder-ui-validation done). (2) Outcome-first connector flow - app/src/components/onboarding/outcome-connectors.tsx implements cards (Read my email, Triage GitHub PRs, etc.) with plugin connection flow. (3) First-task verification - wizard.tsx Step 4 auto-creates hello-world Run after wizard completion. All three items in task description are implemented."
+      ],
+      "started_at": "2026-05-05T08:12:52.653855+02:00",
+      "completed_at": "2026-05-05T08:14:19.449891+02:00",
+      "elapsed_minutes": 1
     },
     "task-per-capability-granular-permissions-(stretch)": {
       "status": "done",
@@ -1712,8 +1722,10 @@
       "elapsed_minutes": 1
     },
     "task-remote-assistant-templates-marketplace": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-05T08:15:35.503449+02:00",
       "elapsed_minutes": 0
     },
     "task-rest-api-(gin)": {
@@ -1881,8 +1893,14 @@
       "elapsed_minutes": 0
     },
     "task-tunneled-inbound-receiver": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Tunneled Inbound Receiver complete: (1) Pluggable tunnel adapter - internal/tunnel/ (ngrok.go + noop.go + tunnel.go Adapter interface); (2) Per-connection webhook-secret store - webhooks.go RotateSecret stores in secrets vault; (3) Webhooks router - internal/api/webhooks.go with GetTunnelStatus/RotateSecret/UpdateAllowlist; (4) UI panel - plugins-manager.tsx has webhook toggle + secret rotation + allowlist management. All four items from task description are implemented."
+      ],
+      "started_at": "2026-05-05T08:14:38.306463+02:00",
+      "completed_at": "2026-05-05T08:15:17.859644+02:00",
       "elapsed_minutes": 0
     },
     "task-ui-nomenclature:-runs-→-tasks": {
@@ -1969,5 +1987,5 @@
       "elapsed_minutes": 3
     }
   },
-  "updated_at": "2026-05-04T14:31:18.843168+02:00"
+  "updated_at": "2026-05-05T08:15:35.503449+02:00"
 }

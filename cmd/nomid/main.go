@@ -576,6 +576,7 @@ func main() {
 		WASMLoader:      wasmLoader,
 		CatalogProvider: catalogProvider,
 		PluginUpdater:   buildPluginUpdater(pluginRegistry, db.NewPluginStateRepository(database), pluginStore, pluginVerifier, wasmLoader, eventBus, catalogProvider),
+		RemoteTemplates: db.NewRemoteTemplateRepository(database),
 	})
 	// Port resolution: persisted setting first, env override last (intended
 	// for test/CI runners that must bind a free port without mutating the

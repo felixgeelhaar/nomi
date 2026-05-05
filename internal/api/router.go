@@ -60,6 +60,10 @@ type RouterConfig struct {
 	// PluginUpdater backs POST /plugins/:id/update (lifecycle-10).
 	// nil disables the endpoint.
 	PluginUpdater func(ctx context.Context, pluginID string) (*domain.PluginState, error)
+
+	// RemoteTemplates enables the remote assistant templates marketplace.
+	// nil disables the endpoint.
+	RemoteTemplates *db.RemoteTemplateRepository
 }
 
 // NewRouter assembles the HTTP routes and wraps them in CORS + auth middleware.
@@ -320,6 +324,16 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 		webhookAdminGroup.GET("/tunnel", webhookServer.GetTunnelStatus)
 		webhookAdminGroup.POST("/:connection_id/rotate-secret", webhookServer.RotateSecret)
 		webhookAdminGroup.PUT("/:connection_id/allowlist", webhookServer.UpdateAllowlist)
+	}
+
+	// Remote assistant templates marketplace
+	if cfg.RemoteTemplates != nil {
+		remoteTemplateServer := NewRemoteTemplateServer(cfg.RemoteTemplates)
+		remoteTemplates := r.Group("/remote-templates")
+		{
+			remoteTemplates.GET("", remoteTemplateServer.ListRemoteTemplates)
+			remoteTemplates.POST("/install", remoteTemplateServer.InstallRemoteTemplate)
+		}
 	}
 
 	return r

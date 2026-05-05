@@ -439,6 +439,28 @@ export interface TriggerRule {
   enabled: boolean;
 }
 
+export interface RemoteTemplate {
+  id: string;
+  catalog_hash?: string;
+  source_url?: string;
+  signature?: string;
+  name: string;
+  tagline?: string;
+  role?: string;
+  best_for?: string;
+  not_for?: string;
+  suggest_ed_model?: string;
+  system_prompt?: string;
+  channels?: string[]; // JSON array
+  capabilities?: string[]; // JSON array
+  contexts?: any[]; // JSON array
+  memory_policy?: any; // JSON object
+  permission_policy?: any; // JSON object
+  recommended_bindings?: any[]; // JSON array
+  installed_at?: string;
+  local_assistant_id?: string;
+}
+
 export interface ApiError {
   error: string;
 }
