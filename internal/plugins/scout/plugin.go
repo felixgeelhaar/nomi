@@ -243,7 +243,7 @@ func (p *Plugin) buildTransport(conn *domain.Connection) (mcpclient.Transport, e
 				return nil, fmt.Errorf("scout: resolve token: %w", err)
 			}
 			if tok != "" {
-				opts = append(opts, mcpclient.WithBearerToken(tok))
+				opts = append(opts, mcpclient.WithHTTPHeader("Authorization", "Bearer "+tok))
 			}
 		}
 		return mcpclient.NewHTTPTransport(endpoint, opts...)
