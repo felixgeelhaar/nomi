@@ -56,3 +56,4 @@ usage.json
 plan.json.backup
 .relicta/
 .claude/settings.local.json
+findings.json
