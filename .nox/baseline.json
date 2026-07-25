@@ -2,132 +2,84 @@
   "schema_version": "1.0.0",
   "entries": [
     {
-      "fingerprint": "0728c053509fb12bcdd90873f5e090ce2201ebae42d909a27450626b8ad151a1",
+      "fingerprint": "bc0a412ccaef5c0d323c94f18c8bb0a17fc7f9ea9e5cb8974a0b0be2e0fa3baa",
       "rule_id": "AI-049",
-      "file_path": "internal/storage/db/providers.go",
+      "file_path": "internal/storage/db/repository_schedule.go",
       "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-05-06T07:37:28.513981Z"
+      "reason": "False positive: db.Exec with fully parameterized SQL (? placeholders, values passed as args), not eval/exec of model output. Same rule naivety as the pre-existing strconv.Atoi entries.",
+      "created_at": "2026-07-25T23:50:18.418404Z"
     },
     {
-      "fingerprint": "aaf1e966de18df90a0e3c3348404c9fbc87499e19aa968e00c5a294a580a9a35",
+      "fingerprint": "df2be14f0ba9baa2e8e9b4489df5c43943962326c39394020cffcca0a5e65b53",
       "rule_id": "AI-049",
-      "file_path": "internal/storage/db/providers.go",
+      "file_path": "internal/storage/db/repository_schedule.go",
       "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-05-06T07:37:29.908448Z"
+      "reason": "False positive: db.Exec with fully parameterized SQL (? placeholders, values passed as args), not eval/exec of model output. Same rule naivety as the pre-existing strconv.Atoi entries.",
+      "created_at": "2026-07-25T23:50:18.418404Z"
     },
     {
-      "fingerprint": "ad69ad7dadf7f5507297c0e8de15d5e2cc54d3d04a2a5cc149d7869c786da727",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/providers.go",
-      "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-05-06T07:37:31.291118Z"
+      "fingerprint": "16a69bfa59048e6c32d7641cb9c592efd75826200a74b370aa19c52ba7bcdb47",
+      "rule_id": "SEC-004",
+      "file_path": "app/src/components/plugins-manager.tsx",
+      "severity": "critical",
+      "reason": "False positive: PEM armor in a \u003ctextarea\u003e placeholder attribute (UI format hint). The literal is the BEGIN/END RSA PRIVATE KEY header/footer with '...' between them; no key material is present. Verified in app/src/components/plugins-manager.tsx.",
+      "created_at": "2026-07-25T23:50:42.368908Z"
     },
     {
-      "fingerprint": "3a5b252d0cf81838d69654a656825696ccb96434ea9387f1ce5bc03d63454daa",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/repository_run_step.go",
+      "fingerprint": "46610da2e1fb95807a08d046125b5c6621b7a4be38f1830c66a264d65834dce2",
+      "rule_id": "SEC-390",
+      "file_path": "app/src/components/plugins-manager.tsx",
       "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-05-06T07:41:50.51576Z"
+      "reason": "False positive: duplicate of SEC-004 on the same span -- the PEM armor is a \u003ctextarea\u003e placeholder attribute (UI format hint), not a key.",
+      "created_at": "2026-07-25T23:51:03.112594Z"
     },
     {
-      "fingerprint": "64484a439d410e86497b63636cf98618efe63f11e1296e38282b741a2c492650",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/repository_run_step.go",
+      "fingerprint": "89ee5a29762c2bb59b37e340d9a7ce6927fd22a2f072b2e50593471fc3981b82",
+      "rule_id": "SEC-240",
+      "file_path": "internal/plugins/manifest.go",
       "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-05-06T07:41:50.794358Z"
+      "reason": "False positive: matches prose in a Go doc comment (// \"bot_token\" pops a password input, \"imap_password\" pops an app-password). No Terraform, no field, no credential.",
+      "created_at": "2026-07-25T23:51:11.502331Z"
     },
     {
-      "fingerprint": "b662eea97c8e66382f80d034ba5c91191cccf90498820184b108a17f346dfe85",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/repository_run_step.go",
+      "fingerprint": "d0c275bd5c93445d90a5587f8837aec20dc8f54a0ae3dd447ad6373bbb488e5b",
+      "rule_id": "SEC-435",
+      "file_path": "internal/integrations/github/auth_test.go",
       "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-05-06T07:42:50.836973Z"
+      "reason": "False positive: httptest stub fixtures -- ghs_fake_install_token, ghs_short_lived_%d, ghs_stub. Literal placeholders, not GitHub tokens (real ghs_ tokens carry 36 base64url chars). Checked explicitly because nomi is public.",
+      "created_at": "2026-07-25T23:51:17.820748Z"
     },
     {
-      "fingerprint": "c9280372cc0bfcdc66cb6f5010cede98c095347840fc9a6fefad907e3faf75d4",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/repository_run_step.go",
+      "fingerprint": "7f6fcd16fccc1e3497c2145ae570427990e40aecd262c1ce56eb6ce94e43a128",
+      "rule_id": "SEC-435",
+      "file_path": "internal/integrations/github/auth_test.go",
       "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-05-06T07:42:52.397365Z"
+      "reason": "False positive: httptest stub fixtures -- ghs_fake_install_token, ghs_short_lived_%d, ghs_stub. Literal placeholders, not GitHub tokens (real ghs_ tokens carry 36 base64url chars). Checked explicitly because nomi is public.",
+      "created_at": "2026-07-25T23:51:17.820748Z"
     },
     {
-      "fingerprint": "26832ccf43e874378082d08d682857f77e2511cff4e90a2482f07c1d83598263",
-      "rule_id": "IAC-013",
-      "file_path": ".github/workflows/release.yml",
+      "fingerprint": "11d5a3e5d11505c9587982ce8239c4352d99d5a2dd0a19e9c29a9fea3a939b44",
+      "rule_id": "SEC-435",
+      "file_path": "internal/plugins/github/issues_test.go",
       "severity": "high",
-      "reason": "Pin GitHub Actions to commit SHA per IAC-013 remediation",
-      "created_at": "2026-05-06T07:43:51.073753Z"
+      "reason": "False positive: httptest stub fixtures -- ghs_fake_install_token, ghs_short_lived_%d, ghs_stub. Literal placeholders, not GitHub tokens (real ghs_ tokens carry 36 base64url chars). Checked explicitly because nomi is public.",
+      "created_at": "2026-07-25T23:51:17.820748Z"
     },
     {
-      "fingerprint": "08a42cd4a7cd2e7531e85ef855bb52d1cc6f4badc6a2d0d61f06f1dff3e45788",
-      "rule_id": "IAC-013",
-      "file_path": ".github/workflows/release.yml",
+      "fingerprint": "7f993c4f163a8b4a3186d269d6d9b83d9ab61a293944f27aba8b03a1ead188dd",
+      "rule_id": "SEC-435",
+      "file_path": "internal/plugins/github/pulls_test.go",
       "severity": "high",
-      "reason": "Pin GitHub Actions to commit SHA per IAC-013 remediation",
-      "created_at": "2026-05-06T07:43:52.524821Z"
+      "reason": "False positive: httptest stub fixtures -- ghs_fake_install_token, ghs_short_lived_%d, ghs_stub. Literal placeholders, not GitHub tokens (real ghs_ tokens carry 36 base64url chars). Checked explicitly because nomi is public.",
+      "created_at": "2026-07-25T23:51:17.820748Z"
     },
     {
-      "fingerprint": "227b788b4b30667a63133331abd6aeb818cb4565f8dc205682888909a1106167",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/providers.go",
+      "fingerprint": "b017aed47b2f8e4ae267c866d8a6e9bfc7af20221734adec0ebc1290ebf57210",
+      "rule_id": "SEC-085",
+      "file_path": "internal/plugins/github/repos.go",
       "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-06-07T04:28:29.825793Z"
-    },
-    {
-      "fingerprint": "0b79bba837b3daaf77b7eb3b9691d1abbf358a5d59a3937f143b4cbcca94d005",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/repository_run_step.go",
-      "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-06-07T04:28:29.825793Z"
-    },
-    {
-      "fingerprint": "53f715492a2dc956e71d9aca3b6f2f1eb7683a6758974b0aca400efa89e018b6",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/repository_run_step.go",
-      "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-06-07T04:28:29.825793Z"
-    },
-    {
-      "fingerprint": "a5c27b2ce98991e3edbb54ec6bd33070001fb9b3c0ec6f04cbdc7d3339b0cbb8",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/repository_run_step.go",
-      "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-06-07T04:28:29.825793Z"
-    },
-    {
-      "fingerprint": "341eaa31d974ebb7b8b86f0975a9c09ef1259fd6f6dd999dfbb9893c925b4b4b",
-      "rule_id": "AI-049",
-      "file_path": "internal/storage/db/repository_run_step.go",
-      "severity": "high",
-      "reason": "False positive: strconv.Atoi is safe integer parsing, not eval/exec",
-      "created_at": "2026-06-07T04:28:29.825793Z"
-    },
-    {
-      "fingerprint": "3e692d1e36806e665f2619305bf7e3d3587120c5187b745a5bc00600f96ef689",
-      "rule_id": "IAC-013",
-      "file_path": ".github/workflows/release.yml",
-      "severity": "high",
-      "reason": "Pin GitHub Actions to commit SHA per IAC-013 remediation",
-      "created_at": "2026-06-07T04:28:50.367702Z"
-    },
-    {
-      "fingerprint": "3333794f80b1456cb396a77c43ef907421d205ba2b6abcd42b3e5f631d858889",
-      "rule_id": "IAC-013",
-      "file_path": ".github/workflows/release.yml",
-      "severity": "high",
-      "reason": "Pin GitHub Actions to commit SHA per IAC-013 remediation",
-      "created_at": "2026-06-07T04:28:50.367702Z"
+      "reason": "Accepted, not a hardcoded secret: the GitHub App documented clone form https://x-access-token:\u003ctoken\u003e@github.com/... built at runtime from a 1h installation token. Error paths already scrub the token (see repos.go). Residual: the URL is an argv element so the token is visible in the local process table for the clone's duration -- acceptable for a single-user desktop app; see PR for the follow-up option.",
+      "created_at": "2026-07-25T23:51:26.427021Z"
     }
   ]
 }
