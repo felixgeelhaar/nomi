@@ -597,11 +597,17 @@ func buildToolInputFromDef(
 	if def != nil && len(def.Arguments) > 0 {
 		allowed := plannerArgumentAllowlist(toolName)
 		for k, v := range def.Arguments {
-			if !allowed[k] {
+			if isReservedPlannerKey(k) {
+				continue
+			}
+			if allowed != nil && !allowed[k] {
 				continue
 			}
 			toolInput[k] = v
 		}
+	}
+	if assistant != nil && assistant.ID != "" {
+		toolInput["__assistant_id"] = assistant.ID
 	}
 	return toolInput
 }
@@ -611,10 +617,13 @@ func buildToolInputFromDef(
 // schema (declared once) stays the source of truth. A planner that ignored
 // the prompt and emitted reserved keys (workspace_root, allowed_binaries,
 // system_prompt, timeout, ...) has its extras dropped at merge time.
+//
+// A nil return means passthrough: the tool has no static schema (plugin /
+// MCP-discovered tools) and every non-reserved key is kept.
 func plannerArgumentAllowlist(toolName string) map[string]bool {
 	schema, ok := argumentSchemas[toolName]
 	if !ok {
-		return map[string]bool{}
+		return nil
 	}
 	out := make(map[string]bool, len(schema.allowed))
 	for k := range schema.allowed {
@@ -642,15 +651,15 @@ func (r *Runtime) stepDefinitionFor(step *domain.Step) *domain.StepDefinition {
 // filesystem.read), the mapping goes here rather than duplicating the
 // literal string in every call site.
 func (r *Runtime) getCapabilityForTool(toolName string) string {
+	if r != nil && r.toolExecutor != nil {
+		if cap := r.toolExecutor.CapabilityFor(toolName); cap != "" {
+			return cap
+		}
+	}
 	switch toolName {
-	case "filesystem.read":
+	case "filesystem.read", "filesystem.list", "filesystem.context":
 		return "filesystem.read"
-	case "filesystem.write":
-		return "filesystem.write"
-	case "filesystem.patch":
-		// Patch shares the write capability so a single permission rule
-		// covers both write and patch. Operators don't need to add a
-		// separate filesystem.patch rule per assistant.
+	case "filesystem.write", "filesystem.patch":
 		return "filesystem.write"
 	case "command.exec":
 		return "command.exec"

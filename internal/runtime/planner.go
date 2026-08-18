@@ -42,6 +42,8 @@ var toolDescription = map[string]string{
 	"filesystem.list":    "List the contents of a folder inside the assistant's workspace. Returns names + sizes + modified times. Use this before reading specific files.",
 	"filesystem.context": "List the folder structure of the assistant's workspace. Useful for orienting before reading specific files.",
 	"command.exec":       "Run a single shell command. Only allowed binaries are permitted; the command is refused if it contains shell metacharacters. Requires user approval.",
+	"mcp.list_tools":     "List tools exposed by a connected MCP server. Optional connection_id; if omitted, the assistant's bound MCP connection is used.",
+	"mcp.call":           "Call a tool on a connected MCP server. Arguments: tool (name), arguments (object), optional connection_id. Requires user approval (mcp.tools).",
 }
 
 // planWithLLM asks the default LLM to decompose a goal into a list of
@@ -270,7 +272,11 @@ func (r *Runtime) availableToolsForPlanner(assistant *domain.AssistantDefinition
 		if assistant != nil && !r.toolPermittedForAssistant(n, assistant) {
 			continue
 		}
-		out = append(out, toolInfo{Name: n, Description: toolDescription[n]})
+		desc := toolDescription[n]
+		if desc == "" && r.toolExecutor != nil {
+			desc = r.toolExecutor.DescriptionFor(n)
+		}
+		out = append(out, toolInfo{Name: n, Description: desc})
 	}
 	return out
 }

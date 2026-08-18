@@ -45,4 +45,10 @@ describe("approvalCopy", () => {
     const copy = approvalCopy("llm.chat", {});
     expect(copy.summary.toLowerCase()).toContain("language model");
   });
+
+  it("renders MCP tool approvals with the tool name", () => {
+    const copy = approvalCopy("mcp.tools", { input: { tool: "search" } });
+    expect(copy.summary).toContain("search");
+    expect(copy.dangerSignal).toBe("network");
+  });
 });

@@ -263,6 +263,13 @@ Each plugin declares its capabilities and runs through the same
 permission engine as the core tools. Connect what you need; nothing
 else loads.
 
+**Any MCP server.** Settings → Plugins → MCP Server. Point at a
+local stdio binary or an HTTP+SSE endpoint. Discovered tools register
+as `mcp.<connection>.<tool>`, gated by `mcp.tools` and plan review —
+the same path as filesystem.write. Scout remains the opinionated
+browser client; this is the catch-all for filesystem, GitHub,
+Postgres, and the rest of the MCP catalog.
+
 ### Bring your own model
 <p align="center"><img src="docs/images/07-providers.png" width="900" alt="AI providers tab"></p>
 
@@ -397,7 +404,12 @@ every release ships against — is in
 
 ## Roadmap
 
-**v0.2.3 (current) — "Reviewable agents + hard sandboxing."**
+**v0.2.4 (current) — "Generic MCP + tray quick-approve."**
+Shipped on top of v0.2.3: connect any MCP server as a Nomi tool
+(`com.nomi.mcp`, stdio or HTTP+SSE, discovered tools gated by
+`mcp.tools` and plan review), tray-menu Approve/Deny without opening
+the window, plugin tools as first-class planner arguments, plugin
+capabilities default to confirm instead of silent deny.
 Shipped: plan-review-before-execute state machine, capability-gated
 tools, hash-chained audit log, sandboxed execution backends (local +
 Docker + gVisor), three-layer network egress isolation
@@ -417,12 +429,8 @@ Prometheus `/metrics` for plan / step / executor / replan
 attribution per provider, `make eval-live-providers` matrix
 against real LLM providers.
 
-Backlog (post-v0.2.3, in priority order — not committed):
+Backlog (post-v0.2.4, in priority order — not committed):
 
-- Generic any-MCP-server plugin (Scout-style client glue
-  generalised — config-driven, not code-driven, per server).
-- Quick-approval inline in the menu bar (don't open main window
-  for trivial confirms).
 - Cross-machine recipe sync (opt-in, end-to-end-encrypted).
 - Hosted Mnemos for visibility-scoped team memory.
 - Approval delegation across devices.

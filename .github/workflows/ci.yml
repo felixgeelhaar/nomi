@@ -2,11 +2,10 @@
 # All gate logic lives in the reusable workflow — bump versions / add
 # jobs there, once, org-wide.
 #
-# Scope: the GO core only. Nomi is a Tauri desktop app (Go daemon + a
-# JS/TS frontend under app/, Rust via app/src-tauri/). The Go module is
-# at the repo root, so the reusable workflow targets it cleanly. The
-# multi-OS Tauri bundle build lives in release.yml; the JS/TS frontend
-# lint/test is a follow-up (a dedicated JS CI job).
+# Scope: Go core (reusable org workflow) plus the JS/TS frontend under
+# app/. Nomi is a Tauri desktop app (Go daemon + React + Rust via
+# app/src-tauri/). The Go module is at the repo root. The multi-OS
+# Tauri bundle build lives in release.yml.
 #
 # coverage: false      — no coverage threshold wired up yet (follow-up).
 # cross-platform: false — the Go core is platform-agnostic; the multi-OS
@@ -43,3 +42,23 @@ jobs:
       golangci-version: "v2.12.2"
       coverage: false      # no coverage threshold wired up yet (follow-up)
       cross-platform: false
+
+  frontend:
+    name: Frontend lint + unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install JS deps
+        working-directory: app
+        run: npm ci
+      - name: Lint
+        working-directory: app
+        run: npm run lint
+      - name: Unit tests
+        working-directory: app
+        run: npm run test:unit

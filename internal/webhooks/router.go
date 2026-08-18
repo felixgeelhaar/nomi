@@ -120,7 +120,7 @@ func (r *Router) handleWebhook(c *gin.Context) {
 	verifier := chooseVerifier(pluginID)
 	if err := verifier.Verify(body, secretPlain, headers); err != nil {
 		log.Printf("[webhook] signature verification failed for %s/%s: %v", pluginID, connectionID, err)
-		r.auditEvent(connectionID, pluginID, "webhook.signature_mismatch", headers, body)
+		r.auditEvent(connectionID, pluginID, "webhook.signature_mismatch")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "signature verification failed"})
 		return
 	}
@@ -190,7 +190,7 @@ func (r *Router) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	r.auditEvent(connectionID, pluginID, "webhook.delivered", map[string]string{"event_type": eventType}, nil)
+	r.auditEvent(connectionID, pluginID, "webhook.delivered")
 	c.JSON(http.StatusAccepted, gin.H{"status": "accepted"})
 }
 
@@ -199,7 +199,7 @@ func (r *Router) handleStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-func (r *Router) auditEvent(connectionID, pluginID, eventType string, headers map[string]string, body []byte) {
+func (r *Router) auditEvent(connectionID, pluginID, eventType string) {
 	if r.cfg.EventBus == nil {
 		return
 	}
@@ -207,14 +207,6 @@ func (r *Router) auditEvent(connectionID, pluginID, eventType string, headers ma
 		"plugin_id":     pluginID,
 		"connection_id": connectionID,
 		"event_type":    eventType,
-		"headers":       headers,
-	}
-	if len(body) > 0 && len(body) <= 4096 {
-		n := len(body)
-		if n > 256 {
-			n = 256
-		}
-		payload["body_preview"] = string(body[:n])
 	}
 	_, _ = r.cfg.EventBus.Publish(context.Background(), domain.EventType(eventType), "", nil, payload)
 }

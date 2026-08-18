@@ -29,8 +29,11 @@ func TestValidatePlannerArguments(t *testing.T) {
 
 		{name: "filesystem.context takes nothing", tool: "filesystem.context", args: map[string]interface{}{"path": "x"}, wantErr: "unknown field"},
 
-		{name: "unknown tool with args", tool: "what", args: map[string]interface{}{"x": 1}, wantErr: "no planner argument schema"},
+		{name: "unknown tool with args", tool: "what", args: map[string]interface{}{"x": 1}},
+		{name: "unknown tool reserved field", tool: "what", args: map[string]interface{}{"workspace_root": "/etc"}, wantErr: "reserved field"},
 		{name: "unknown tool no args", tool: "what", args: nil},
+		{name: "mcp.call ok", tool: "mcp.call", args: map[string]interface{}{"tool": "search", "arguments": map[string]interface{}{"q": "n"}}},
+		{name: "mcp.call missing tool", tool: "mcp.call", args: map[string]interface{}{"arguments": map[string]interface{}{}}, wantErr: "missing required field"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -76,8 +76,10 @@ func TestEvaluateWildcardBoundary(t *testing.T) {
 	if got := e.Evaluate(policy, "file.read"); got != domain.PermissionAllow {
 		t.Fatalf("file.* should match file.read: got %s", got)
 	}
-	// "files.read" must NOT match — that would be a dotted-namespace confusion.
-	if got := e.Evaluate(policy, "files.read"); got != domain.PermissionDeny {
+	// "files.read" must NOT match file.* — that would be a dotted-namespace
+	// confusion. Unmatched plugin-shaped caps now confirm (not deny), so
+	// assert the allow rule did not leak across the boundary.
+	if got := e.Evaluate(policy, "files.read"); got == domain.PermissionAllow {
 		t.Fatalf("file.* must not match files.read (dotted namespace boundary): got %s", got)
 	}
 }
@@ -102,7 +104,13 @@ func TestEvaluateEmptyPolicy(t *testing.T) {
 	e := NewEngine()
 	policy := domain.PermissionPolicy{}
 	if got := e.Evaluate(policy, "anything"); got != domain.PermissionDeny {
-		t.Fatalf("empty policy must deny: got %s", got)
+		t.Fatalf("empty policy must deny undotted names: got %s", got)
+	}
+	if got := e.Evaluate(policy, "command.exec"); got != domain.PermissionDeny {
+		t.Fatalf("empty policy must deny system caps: got %s", got)
+	}
+	if got := e.Evaluate(policy, "mcp.tools"); got != domain.PermissionConfirm {
+		t.Fatalf("empty policy should confirm plugin-shaped caps: got %s", got)
 	}
 }
 

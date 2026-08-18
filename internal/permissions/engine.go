@@ -19,21 +19,49 @@ func NewEngine() *Engine {
 
 // Evaluate evaluates a capability against a policy. Exact matches win over
 // wildcards, and the most specific wildcard (longest prefix) wins over a
-// less specific one. Unmatched capabilities are denied.
+// less specific one. Unmatched system capabilities deny; unmatched
+// plugin-shaped capabilities (dotted names not in SystemCapabilityFamilies)
+// confirm so bound plugin/MCP tools surface an approval card.
 //
 // Per-connection overrides are applied via EvaluateForConnection; this
 // entry point assumes "no specific connection" and resolves against
 // Rules only.
 func (e *Engine) Evaluate(policy domain.PermissionPolicy, capability string) domain.PermissionMode {
+	if capability == "" {
+		return domain.PermissionDeny
+	}
 	if rule := e.MatchingRule(policy, capability); rule != nil {
 		return rule.Mode
+	}
+	return unmatchedMode(capability)
+}
+
+// unmatchedMode is the fail-closed default when no rule matches.
+// System capabilities (filesystem.*, command.exec, network.outgoing)
+// deny — those are the dangerous host-side primitives and must be
+// opted into. Plugin-shaped capabilities (gmail.send, mcp.tools,
+// scout.browse, …) confirm so a bound plugin tool surfaces an approval
+// card instead of a silent deny. That is the "ask before you act"
+// default for the long tail of MCP / marketplace tools. Undotted
+// names are treated as unknown and denied.
+func unmatchedMode(capability string) domain.PermissionMode {
+	if _, isSystem := SystemCapabilityFamilies[capability]; isSystem {
+		return domain.PermissionDeny
+	}
+	if capability == ImplicitCapability {
+		return domain.PermissionAllow
+	}
+	if strings.Contains(capability, ".") {
+		return domain.PermissionConfirm
 	}
 	return domain.PermissionDeny
 }
 
 // EvaluateForConnection evaluates a capability against a policy,
 // consulting per-connection overrides first. Per ADR 0001 §7:
-// per-connection override → matching PermissionRule → implicit deny.
+// per-connection override → matching PermissionRule → unmatchedMode
+// (deny for system capabilities, confirm for dotted plugin-shaped
+// names).
 //
 // connectionID may be empty, in which case behavior is identical to
 // Evaluate. This lets callers use one code path regardless of whether

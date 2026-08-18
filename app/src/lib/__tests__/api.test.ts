@@ -33,6 +33,15 @@ async function freshApi() {
 describe("fetchApi", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // api.ts short-circuits to the vite-preview / Playwright token path
+    // when window.__TAURI_INTERNALS__ is missing. These tests mock
+    // invoke() and must look like a Tauri renderer so get_auth_token
+    // is used after vi.resetModules() re-evaluates inTauri.
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      value: {},
+      configurable: true,
+      writable: true,
+    });
     // Distinct return per command so a token can't accidentally get used as
     // a URL. invoke() is called for both get_auth_token and the (newer)
     // get_api_endpoint discovery command.

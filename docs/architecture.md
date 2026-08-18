@@ -60,10 +60,9 @@ claims with provenance, not opaque vector blobs. SQLite-backed,
 schema-versioned, scoped to workspace / profile / preferences,
 exportable.
 
-In Nomi today, the memory subsystem is a thin homegrown SQLite store
-with the same scoping. Integration with mnemos as an embedded library
-is on the roadmap — see the mnemos integration assessment in
-`.roady/spec.yaml` for the path.
+In Nomi today, Mnemos ships as a first-party plugin (`com.nomi.mnemos`)
+plus a homegrown SQLite memory store with the same workspace scoping.
+`go.mod` pins `go.klarlabs.de/mnemos`.
 
 If your agent needs to remember things across runs and you want the
 same SQL surface you use everywhere else, mnemos is the right shape.
@@ -71,9 +70,10 @@ same SQL surface you use everywhere else, mnemos is the right shape.
 ### [`scout`](https://github.com/klarlabs-studio/scout) — sight
 
 Browser automation built for agents — observable DOM, semantic
-selectors, deterministic end-to-end. Used by the Nomi user-journey
-test runner today; the Browser plugin will adopt it once that
-connector ships.
+selectors, deterministic end-to-end. Nomi ships two integrations:
+the Scout plugin (`com.nomi.scout`, six primitives) and the generic
+MCP plugin (`com.nomi.mcp`) that can point at any MCP server,
+including Scout.
 
 If your agent has to drive a web UI and you've been wrestling
 Playwright into agent-shaped tasks, scout is opinionated for the

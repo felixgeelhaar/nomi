@@ -129,6 +129,44 @@ func (e *Executor) KnownTools() []string {
 	return e.registry.Names()
 }
 
+// CapabilityFor returns the permission capability the named tool
+// declares, or "" if the tool is not registered. Used by the runtime
+// so plugin tools (scout.navigate → scout.browse, mcp.call → mcp.tools)
+// are gated by their real capability instead of their tool name.
+func (e *Executor) CapabilityFor(name string) string {
+	if e == nil || e.registry == nil {
+		return ""
+	}
+	tool, err := e.registry.Get(name)
+	if err != nil {
+		return ""
+	}
+	return tool.Capability()
+}
+
+// DescriptionFor returns a human-readable one-liner for a tool that
+// implements Describer, or "" if the tool is unregistered / silent.
+func (e *Executor) DescriptionFor(name string) string {
+	if e == nil || e.registry == nil {
+		return ""
+	}
+	tool, err := e.registry.Get(name)
+	if err != nil {
+		return ""
+	}
+	if d, ok := tool.(Describer); ok {
+		return d.Description()
+	}
+	return ""
+}
+
+// Describer is an optional extension of Tool. The planner uses it to
+// show MCP-discovered (and other plugin) tools with their upstream
+// descriptions instead of a bare name.
+type Describer interface {
+	Description() string
+}
+
 // Execute runs a tool and returns a structured result
 func (e *Executor) Execute(ctx context.Context, name string, input map[string]interface{}) *ExecutionResult {
 	tool, err := e.registry.Get(name)

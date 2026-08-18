@@ -39,6 +39,7 @@ import (
 	githubplugin "go.klarlabs.de/nomi/internal/plugins/github"
 	gmailplugin "go.klarlabs.de/nomi/internal/plugins/gmail"
 	"go.klarlabs.de/nomi/internal/plugins/hub"
+	mcpbridge "go.klarlabs.de/nomi/internal/plugins/mcpbridge"
 	mediaplugin "go.klarlabs.de/nomi/internal/plugins/media"
 	mnemosplugin "go.klarlabs.de/nomi/internal/plugins/mnemos"
 	obsidianplugin "go.klarlabs.de/nomi/internal/plugins/obsidian"
@@ -303,6 +304,15 @@ func main() {
 	scoutPlugin := scoutplugin.NewPlugin(connectionRepo, bindingRepo, secretStore)
 	if err := pluginRegistry.Register(scoutPlugin); err != nil {
 		log.Fatalf("Failed to register Scout plugin: %v", err)
+	}
+
+	// Generic MCP plugin — any stdio or HTTP+SSE MCP server. Discovered
+	// tools are hot-registered into the shared tools.Registry so the
+	// planner can name them (mcp.<connection>.<tool>) and every call is
+	// gated by mcp.tools + plan review.
+	mcpPlugin := mcpbridge.NewPlugin(connectionRepo, bindingRepo, secretStore, toolRegistry)
+	if err := pluginRegistry.Register(mcpPlugin); err != nil {
+		log.Fatalf("Failed to register MCP plugin: %v", err)
 	}
 
 	// Google OAuth manager — shared across any Google-backed plugin

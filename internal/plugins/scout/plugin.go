@@ -6,10 +6,10 @@
 // capability engine + plan-review gate that protects the runtime's
 // built-in tools.
 //
-// The plugin is intentionally Scout-specific for v1 even though
-// `go.klarlabs.de/mcp/client` is a generic client. The
-// generic "any-MCP-server" plugin variant is a follow-up — see the
-// roady backlog item.
+// The plugin is intentionally Scout-specific even though
+// `go.klarlabs.de/mcp/client` is a generic client. The generic
+// any-MCP-server plugin lives in `internal/plugins/mcpbridge`
+// (`com.nomi.mcp`).
 package scout
 
 import (

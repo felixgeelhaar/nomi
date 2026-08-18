@@ -68,7 +68,7 @@ SQLite repositories live in `internal/storage/db/*.go` (one file per aggregate g
 
 ### Desktop app
 
-`app/` is a Tauri v2 shell around a Vite + React 19 + TypeScript frontend with shadcn/ui primitives in `app/src/components/ui/`. The React app talks to `nomid` at `http://127.0.0.1:8080` (hardcoded in `app/src/lib/api.ts`). The Rust side (`app/src-tauri/src/main.rs`) proxies the `/events/stream` SSE into Tauri events (`start_event_stream` command) so the React UI subscribes via `useTauriEvents` instead of opening `EventSource` directly.
+`app/` is a Tauri v2 shell around a Vite + React 19 + TypeScript frontend with shadcn/ui primitives in `app/src/components/ui/`. The React app talks to `nomid` via `app/src/lib/api.ts`. Inside Tauri the URL is read from `api.endpoint` (written by nomid at startup); outside Tauri (vite preview / Playwright) it falls back to `http://127.0.0.1:8080`. The Rust side (`app/src-tauri/src/main.rs`) proxies `/events/stream` SSE into Tauri events (`start_event_stream`) so the React UI subscribes via `useTauriEvents` instead of opening `EventSource` directly.
 
 Tabs/features in `App.tsx`: Chats, Assistants, Approvals, Memory, Events, Settings (Connections / AI Providers / Plugins).
 
@@ -96,6 +96,14 @@ Planning and task state live in `.roady/` — this is the source of truth for wh
 
 **Shipped (V1 polish closeout):** Scout browser plugin (`com.nomi.scout`, MCP-client via `go.klarlabs.de/mcp`, stdio + http+sse transports), DNS egress allowlist on `network.egress` rule (docker `--add-host` pinning + `--dns=127.255.255.255`), eBPF cgroup_skb/egress filter (pure-Go BPF asm via `cilium/ebpf`, gated by `NOMI_EGRESS_EBPF=1`, soft-falls to DNS-only), DiffPreview Shiki per-hunk highlighting (one tokenisation per hunk, multi-line context preserved), `make eval-live-providers` matrix (per-provider pass-rate reporting via `TestPlannerGoldenSet_Live`).
 
-**Pending / deferred:** none — V1 polish closeout is fully shipped.
+**Shipped (v0.2.4):** generic MCP plugin (`com.nomi.mcp`) — any stdio
+or HTTP+SSE MCP server, discovered tools hot-registered as
+`mcp.<connection>.<tool>`, gated by `mcp.tools` + plan review; tray
+quick-approve (Approve/Deny in the menu bar without opening the
+window); plugin-tool planner arguments; plugin-shaped capabilities
+default to confirm.
+
+**Pending / deferred:** Cross-machine recipe sync, hosted Mnemos,
+approval delegation across devices, WASM marketplace catalog growth.
 
 **Workflow when picking up work:** check `.roady/state.json` for the task, run `roady` MCP tools (`roady_get_ready_tasks`, `roady_transition_task`) to claim it, keep WIP ≤ 3. Spec/plan changes go through `roady_review_spec` / `roady_generate_plan` rather than editing YAML by hand — the `events.jsonl` chain breaks otherwise.
