@@ -117,9 +117,8 @@ func (v *slackVerifier) Verify(body []byte, secret string, headers map[string]st
 	}
 
 	// Slack signature base string: "v0:timestamp:body"
-	base := fmt.Sprintf("v0:%s:%s", ts, string(body))
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(base))
+	_, _ = fmt.Fprintf(mac, "v0:%s:%s", ts, body)
 	expected := "v0=" + hex.EncodeToString(mac.Sum(nil))
 
 	if !hmac.Equal([]byte(expected), []byte(sig)) {

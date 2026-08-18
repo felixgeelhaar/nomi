@@ -17,7 +17,7 @@ func githubSig(secret, body string) string {
 
 func slackSig(secret, ts, body string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(fmt.Sprintf("v0:%s:%s", ts, body)))
+	_, _ = fmt.Fprintf(mac, "v0:%s:%s", ts, body)
 	return "v0=" + hex.EncodeToString(mac.Sum(nil))
 }
 
