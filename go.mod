@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/bwmarrin/discordgo v0.29.0
-	github.com/cilium/ebpf v0.21.0
+	github.com/cilium/ebpf v0.22.0
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
