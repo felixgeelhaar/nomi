@@ -2,6 +2,8 @@ module go.klarlabs.de/nomi
 
 go 1.26.2
 
+toolchain go1.26.7
+
 require (
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/cilium/ebpf v0.22.0
