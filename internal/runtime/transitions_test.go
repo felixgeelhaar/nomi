@@ -85,3 +85,88 @@ func TestTransitionRun_ConcurrentLoserGetsErrConcurrentTransition(t *testing.T) 
 		t.Fatalf("expected exactly 1 ErrConcurrentTransition, got %d", concurrent)
 	}
 }
+
+// TestTransitionRun_StaleSnapshotLoserGetsErrConcurrentTransition covers the
+// half of the race the CAS cannot see.
+//
+// transitionRun re-reads the row before validating. A loser whose read lands
+// after the winner has already committed therefore never reaches the CAS at
+// all: it validates planning -> planning, which the state machine rejects.
+// Reporting that as an invalid transition tells the caller it asked for
+// something illegal, when in truth it simply arrived second — and callers are
+// documented to treat ErrConcurrentTransition as benign and everything else
+// as a fault.
+//
+// The two-goroutine test above only hits this window when the scheduler
+// happens to separate the reads, so it passed for a long time and then failed
+// on a loaded machine. This one forces the ordering instead of hoping for it.
+func TestTransitionRun_StaleSnapshotLoserGetsErrConcurrentTransition(t *testing.T) {
+	rt, cleanup := setupTestRuntime(t)
+	defer cleanup()
+
+	if err := rt.assistantRepo.Create(&domain.AssistantDefinition{
+		ID: "a", Name: "A", Role: "x",
+	}); err != nil {
+		t.Fatalf("seed assistant: %v", err)
+	}
+	run := &domain.Run{
+		ID:          "run-stale-snapshot",
+		Goal:        "stale snapshot",
+		AssistantID: "a",
+		Status:      domain.RunCreated,
+		PlanVersion: 1,
+	}
+	if err := rt.runRepo.Create(run); err != nil {
+		t.Fatalf("seed run: %v", err)
+	}
+
+	// The winner. Its snapshot is current, so it takes the row to planning.
+	winner := *run
+	if err := rt.transitionRun(context.Background(), &winner, domain.RunPlanning); err != nil {
+		t.Fatalf("winner transition: %v", err)
+	}
+
+	// The loser still believes the run is created — the snapshot it was
+	// handed before the winner committed.
+	loser := *run
+	err := rt.transitionRun(context.Background(), &loser, domain.RunPlanning)
+	if err != ErrConcurrentTransition {
+		t.Fatalf("stale-snapshot loser: got %v, want ErrConcurrentTransition", err)
+	}
+}
+
+// TestTransitionRun_GenuinelyInvalidTransitionStillReportsInvalid guards the
+// other direction: a caller holding an up-to-date snapshot that asks for a
+// transition the state machine forbids must still be told so. Treating that
+// as a lost race would hide real logic errors behind a benign one.
+func TestTransitionRun_GenuinelyInvalidTransitionStillReportsInvalid(t *testing.T) {
+	rt, cleanup := setupTestRuntime(t)
+	defer cleanup()
+
+	if err := rt.assistantRepo.Create(&domain.AssistantDefinition{
+		ID: "a", Name: "A", Role: "x",
+	}); err != nil {
+		t.Fatalf("seed assistant: %v", err)
+	}
+	run := &domain.Run{
+		ID:          "run-invalid",
+		Goal:        "invalid",
+		AssistantID: "a",
+		Status:      domain.RunCreated,
+		PlanVersion: 1,
+	}
+	if err := rt.runRepo.Create(run); err != nil {
+		t.Fatalf("seed run: %v", err)
+	}
+
+	// Snapshot matches the row, so nothing raced; created -> completed is
+	// simply not a legal move.
+	snapshot := *run
+	err := rt.transitionRun(context.Background(), &snapshot, domain.RunCompleted)
+	if err == nil {
+		t.Fatal("expected an error for created -> completed")
+	}
+	if err == ErrConcurrentTransition {
+		t.Fatal("a genuinely invalid transition was reported as a lost race")
+	}
+}
