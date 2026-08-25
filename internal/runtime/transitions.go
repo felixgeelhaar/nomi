@@ -42,6 +42,16 @@ func (r *Runtime) transitionRun(_ context.Context, run *domain.Run, to domain.Ru
 	sm := statekit.NewRunStateMachine()
 	sm.SetCurrent(current.Status)
 	if smErr := sm.Transition(to, nil); smErr != nil {
+		// The CAS below only catches a loser that read the same status the
+		// winner did. A loser whose read lands *after* the winner commits
+		// sees the already-advanced status and fails validity instead —
+		// reporting a lost race as though the caller had asked for
+		// something illegal. If the row moved since the caller's snapshot,
+		// this is that race, and ErrConcurrentTransition is what the
+		// contract above promises.
+		if current.Status != run.Status {
+			return ErrConcurrentTransition
+		}
 		return smErr
 	}
 
