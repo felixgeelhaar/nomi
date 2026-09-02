@@ -138,6 +138,7 @@ func (p *Plugin) syncDiscoveredTools(conn *domain.Connection, infos []mcpclient.
 			nomiName:    nomiName,
 			upstream:    info.Name,
 			description: desc,
+			schema:      info.InputSchema,
 		}
 		if err := p.toolsReg.Register(tool); err != nil {
 			continue

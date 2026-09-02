@@ -59,10 +59,14 @@ func (t *dispatchTool) Execute(ctx context.Context, input map[string]interface{}
 		t.plugin.recordActivity(conn.ID)
 		out := make([]map[string]interface{}, 0, len(infos))
 		for _, info := range infos {
-			out = append(out, map[string]interface{}{
+			entry := map[string]interface{}{
 				"name":        info.Name,
 				"description": info.Description,
-			})
+			}
+			if info.InputSchema != nil {
+				entry["input_schema"] = info.InputSchema
+			}
+			out = append(out, entry)
 		}
 		return map[string]interface{}{"tools": out, "connection_id": conn.ID}, nil
 	case dispatchCall:
@@ -87,11 +91,13 @@ type discoveredTool struct {
 	nomiName    string
 	upstream    string
 	description string
+	schema      any
 }
 
 func (t *discoveredTool) Name() string        { return t.nomiName }
 func (t *discoveredTool) Capability() string  { return Capability }
 func (t *discoveredTool) Description() string { return t.description }
+func (t *discoveredTool) InputSchema() any    { return t.schema }
 
 func (t *discoveredTool) Execute(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
 	if input == nil {

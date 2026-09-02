@@ -172,6 +172,44 @@ func TestDispatchCallAndDiscover(t *testing.T) {
 	if out["text"] != "ok:search" {
 		t.Fatalf("discovered execute = %#v", out)
 	}
+
+	health, ok := p.ConnectionHealth(conn.ID)
+	if !ok || len(health.DiscoveredTools) != 2 {
+		t.Fatalf("health discovered = %#v ok=%v", health, ok)
+	}
+}
+
+func TestDiscoveredToolKeepsInputSchema(t *testing.T) {
+	reg := tools.NewRegistry()
+	p := NewPlugin(nil, nil, nil, reg)
+	conn := &domain.Connection{ID: "c1", Name: "Docs", Enabled: true}
+	p.syncDiscoveredTools(conn, []mcpclient.ToolInfo{{
+		Name:        "read_file",
+		Description: "Read a file",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path": map[string]any{"type": "string"},
+			},
+			"required": []any{"path"},
+		},
+	}})
+	tool, err := reg.Get("mcp.docs.read_file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sp, ok := tool.(tools.SchemaProvider)
+	if !ok {
+		t.Fatal("expected SchemaProvider")
+	}
+	sum := tools.CompactSchemaSummary(sp.InputSchema())
+	if sum != "Args: path (string)" {
+		t.Fatalf("summary = %q", sum)
+	}
+	ex := tools.NewExecutor(reg)
+	if got := ex.SchemaSummaryFor("mcp.docs.read_file"); got != sum {
+		t.Fatalf("SchemaSummaryFor = %q", got)
+	}
 }
 
 func TestFlattenStructuredContent(t *testing.T) {

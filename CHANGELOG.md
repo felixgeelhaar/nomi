@@ -32,6 +32,16 @@ tools first-class.
   instead of deny, so a bound Gmail/Scout/MCP tool surfaces an approval
   card instead of failing silently. System capabilities and unknown
   dotted names stay deny-by-default.
+- MCP discovered tools keep their upstream `InputSchema`; the planner
+  prompt includes a compact Args summary so plans emit valid arguments
+  (Goose/Cline parity). `mcp.list_tools` returns `input_schema`.
+- MCP/Scout connection rows show discovered tool names, allow config
+  edit + rediscover, and hide transport-irrelevant fields. "Add
+  connection" is gated on credentials **or** config schema.
+- Tray quick-approve uses plain-English summaries; irreversible and
+  `filesystem.write` cards open the Approvals tab instead of resolving
+  from the tray (forcing function / diff preview). Resolve failures
+  open the window.
 - The planner accepts arguments for plugin tools (passthrough except
   reserved runtime keys). Previously any argument on an unschematized
   tool rejected the whole plan — MCP/Gmail/Scout tools could not be

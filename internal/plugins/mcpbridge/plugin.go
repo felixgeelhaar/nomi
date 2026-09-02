@@ -159,7 +159,11 @@ func (p *Plugin) ConnectionHealth(connectionID string) (plugins.ConnectionHealth
 	if !ok || h == nil {
 		return plugins.ConnectionHealth{}, false
 	}
-	return *h, true
+	out := *h
+	if names := p.registeredNames[connectionID]; len(names) > 0 {
+		out.DiscoveredTools = append([]string(nil), names...)
+	}
+	return out, true
 }
 
 // Start marks the plugin running and discovers tools on every enabled

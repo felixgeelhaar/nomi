@@ -348,16 +348,25 @@ async fn set_tray_state(app: AppHandle, state: String) -> Result<(), String> {
 struct PendingApproval {
     id: String,
     capability: String,
+    #[serde(default)]
+    summary: String,
+    #[serde(default)]
+    danger_signal: String,
 }
 
-fn truncate_cap(cap: &str) -> String {
-    const MAX: usize = 28;
-    let count = cap.chars().count();
-    if count <= MAX {
-        return cap.to_string();
+fn truncate_label(s: &str, max: usize) -> String {
+    let count = s.chars().count();
+    if count <= max {
+        return s.to_string();
     }
-    let s: String = cap.chars().take(MAX).collect();
-    format!("{s}…")
+    let cut: String = s.chars().take(max).collect();
+    format!("{cut}…")
+}
+
+fn tray_requires_window(a: &PendingApproval) -> bool {
+    // Irreversible commands and filesystem writes need the in-app forcing
+    // function / diff preview. Tray Approve would skip those safeguards.
+    a.danger_signal == "irreversible" || a.capability == "filesystem.write"
 }
 
 fn build_tray_menu(
@@ -389,14 +398,26 @@ fn build_tray_menu(
 
     let mut quick: Vec<tauri::menu::MenuItem<tauri::Wry>> = Vec::new();
     for a in approvals.iter().take(4) {
-        let short = truncate_cap(&a.capability);
+        let label = if a.summary.is_empty() {
+            truncate_label(&a.capability, 36)
+        } else {
+            truncate_label(&a.summary, 36)
+        };
+        if tray_requires_window(a) {
+            quick.push(
+                tauri::menu::MenuItemBuilder::new(format!("Review {label}"))
+                    .id(format!("review:{}", a.id))
+                    .build(app)?,
+            );
+            continue;
+        }
         quick.push(
-            tauri::menu::MenuItemBuilder::new(format!("Approve {short}"))
+            tauri::menu::MenuItemBuilder::new(format!("Approve {label}"))
                 .id(format!("approve:{}", a.id))
                 .build(app)?,
         );
         quick.push(
-            tauri::menu::MenuItemBuilder::new(format!("Deny {short}"))
+            tauri::menu::MenuItemBuilder::new(format!("Deny {label}"))
                 .id(format!("deny:{}", a.id))
                 .build(app)?,
         );
@@ -468,6 +489,13 @@ fn handle_tray_menu(app: &AppHandle, id: &str) {
                 let _ = window.set_focus();
             }
         }
+        other if other.starts_with("review:") => {
+            let _ = app.emit("tray-menu-clicked", "approvals");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
         "settings" => {
             let _ = app.emit("tray-menu-clicked", "settings");
             if let Some(window) = app.get_webview_window("main") {
@@ -500,6 +528,11 @@ fn handle_tray_menu(app: &AppHandle, id: &str) {
                     }
                     Err(e) => {
                         eprintln!("[nomi-app] tray approve/deny failed: {e}");
+                        let _ = app_clone.emit("tray-menu-clicked", "approvals-resolve-failed");
+                        if let Some(window) = app_clone.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
                     }
                 }
             });

@@ -276,7 +276,11 @@ func (r *Runtime) availableToolsForPlanner(assistant *domain.AssistantDefinition
 		if desc == "" && r.toolExecutor != nil {
 			desc = r.toolExecutor.DescriptionFor(n)
 		}
-		out = append(out, toolInfo{Name: n, Description: desc})
+		summary := ""
+		if r.toolExecutor != nil {
+			summary = r.toolExecutor.SchemaSummaryFor(n)
+		}
+		out = append(out, toolInfo{Name: n, Description: desc, SchemaSummary: summary})
 	}
 	return out
 }
@@ -292,8 +296,9 @@ func (r *Runtime) toolPermittedForAssistant(toolName string, assistant *domain.A
 }
 
 type toolInfo struct {
-	Name        string
-	Description string
+	Name          string
+	Description   string
+	SchemaSummary string
 }
 
 // plannerSystemPrompt is stable across all planning calls. User- and
@@ -353,11 +358,14 @@ func buildPlannerPrompt(
 
 	b.WriteString("Available tools:\n")
 	for _, t := range tools {
+		line := "- " + t.Name
 		if t.Description != "" {
-			fmt.Fprintf(&b, "- %s: %s\n", t.Name, t.Description)
-		} else {
-			fmt.Fprintf(&b, "- %s\n", t.Name)
+			line += ": " + t.Description
 		}
+		if t.SchemaSummary != "" {
+			line += ". " + t.SchemaSummary
+		}
+		b.WriteString(line + "\n")
 	}
 	b.WriteString("\n")
 

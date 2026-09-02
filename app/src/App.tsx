@@ -20,6 +20,7 @@ import { OnboardingWizard } from "@/components/onboarding/wizard";
 import { EventProvider } from "@/providers/event-provider";
 import { warmHighlighter } from "@/lib/highlighter";
 import { approvalsApi, assistantsApi, healthApi, runsApi, settingsApi } from "@/lib/api";
+import { approvalCopy } from "@/lib/approval-copy";
 import { queryKeys } from "@/lib/query-keys";
 import type { Assistant } from "@/types/api";
 import {
@@ -249,6 +250,11 @@ function App() {
             await queryClient.invalidateQueries({ queryKey: queryKeys.runs.list() });
             return;
           }
+          if (action === "approvals-resolve-failed") {
+            setMainTab("approvals");
+            await queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list() });
+            return;
+          }
           if (action === "pause-agents") {
             try {
               const { runs } = await runsApi.list();
@@ -305,7 +311,15 @@ function App() {
     void invoke("set_tray_state", { state: trayState }).catch(() => {});
     const pending = (approvalsQuery.data?.approvals ?? [])
       .filter((a) => a.status === "pending")
-      .map((a) => ({ id: a.id, capability: a.capability }));
+      .map((a) => {
+        const copy = approvalCopy(a.capability, a.context);
+        return {
+          id: a.id,
+          capability: a.capability,
+          summary: copy.summary,
+          danger_signal: copy.dangerSignal ?? "",
+        };
+      });
     void invoke("sync_approval_menu", { approvals: pending }).catch(() => {});
   }, [approvalsQuery.data, runsQuery.data]);
 
