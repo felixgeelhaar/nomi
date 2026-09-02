@@ -27,10 +27,11 @@ tools first-class.
 - Frontend lint + unit tests run on every PR (`ci.yml`).
 
 ### Changed
-- Unmatched **plugin-shaped** capabilities (dotted names that are not
-  filesystem/command/network.outgoing) default to **confirm** instead of
-  deny, so a bound Gmail/Scout/MCP tool surfaces an approval card
-  instead of failing silently. System capabilities stay deny-by-default.
+- Unmatched **first-party plugin** capabilities (`mcp.*`, `scout.*`,
+  `gmail.*`, … — see `PluginConfirmPrefixes`) default to **confirm**
+  instead of deny, so a bound Gmail/Scout/MCP tool surfaces an approval
+  card instead of failing silently. System capabilities and unknown
+  dotted names stay deny-by-default.
 - The planner accepts arguments for plugin tools (passthrough except
   reserved runtime keys). Previously any argument on an unschematized
   tool rejected the whole plan — MCP/Gmail/Scout tools could not be

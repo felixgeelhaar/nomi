@@ -100,8 +100,8 @@ Planning and task state live in `.roady/` — this is the source of truth for wh
 or HTTP+SSE MCP server, discovered tools hot-registered as
 `mcp.<connection>.<tool>`, gated by `mcp.tools` + plan review; tray
 quick-approve (Approve/Deny in the menu bar without opening the
-window); plugin-tool planner arguments; plugin-shaped capabilities
-default to confirm.
+window); plugin-tool planner arguments; first-party plugin capabilities
+(`mcp.*`, `scout.*`, `gmail.*`, …) default to confirm.
 
 **Pending / deferred:** Cross-machine recipe sync, hosted Mnemos,
 approval delegation across devices, WASM marketplace catalog growth.

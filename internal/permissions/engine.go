@@ -19,8 +19,8 @@ func NewEngine() *Engine {
 
 // Evaluate evaluates a capability against a policy. Exact matches win over
 // wildcards, and the most specific wildcard (longest prefix) wins over a
-// less specific one. Unmatched system capabilities deny; unmatched
-// plugin-shaped capabilities (dotted names not in SystemCapabilityFamilies)
+// less specific one. Unmatched system and unknown capabilities deny;
+// unmatched first-party plugin capabilities (see PluginConfirmPrefixes)
 // confirm so bound plugin/MCP tools surface an approval card.
 //
 // Per-connection overrides are applied via EvaluateForConnection; this
@@ -36,14 +36,36 @@ func (e *Engine) Evaluate(policy domain.PermissionPolicy, capability string) dom
 	return unmatchedMode(capability)
 }
 
+// PluginConfirmPrefixes are first-party (and example) plugin capability
+// families whose unmatched default is confirm rather than deny. Binding
+// a Gmail / Scout / MCP connection should surface an approval card, not
+// a silent deny. Arbitrary dotted names (document.delete, tax.assess,
+// WASM marketplace invent-your-own) stay deny — fail closed unless the
+// assistant policy opts in. Keep this list in sync with plugin
+// Manifest().Capabilities that are not system families.
+var PluginConfirmPrefixes = []string{
+	"mcp.",
+	"scout.",
+	"gmail.",
+	"calendar.",
+	"browser.",
+	"github.",
+	"email.",
+	"slack.",
+	"discord.",
+	"whatsapp.",
+	"media.",
+	"mnemos.",
+	"echo.", // example WASM plugin
+}
+
 // unmatchedMode is the fail-closed default when no rule matches.
 // System capabilities (filesystem.*, command.exec, network.outgoing)
 // deny — those are the dangerous host-side primitives and must be
-// opted into. Plugin-shaped capabilities (gmail.send, mcp.tools,
-// scout.browse, …) confirm so a bound plugin tool surfaces an approval
-// card instead of a silent deny. That is the "ask before you act"
-// default for the long tail of MCP / marketplace tools. Undotted
-// names are treated as unknown and denied.
+// opted into. Known first-party plugin capabilities (gmail.send,
+// mcp.tools, scout.browse, …) confirm so a bound plugin tool surfaces
+// an approval card instead of a silent deny. Everything else —
+// including unknown dotted names — is denied.
 func unmatchedMode(capability string) domain.PermissionMode {
 	if _, isSystem := SystemCapabilityFamilies[capability]; isSystem {
 		return domain.PermissionDeny
@@ -51,8 +73,10 @@ func unmatchedMode(capability string) domain.PermissionMode {
 	if capability == ImplicitCapability {
 		return domain.PermissionAllow
 	}
-	if strings.Contains(capability, ".") {
-		return domain.PermissionConfirm
+	for _, prefix := range PluginConfirmPrefixes {
+		if strings.HasPrefix(capability, prefix) {
+			return domain.PermissionConfirm
+		}
 	}
 	return domain.PermissionDeny
 }
@@ -60,8 +84,7 @@ func unmatchedMode(capability string) domain.PermissionMode {
 // EvaluateForConnection evaluates a capability against a policy,
 // consulting per-connection overrides first. Per ADR 0001 §7:
 // per-connection override → matching PermissionRule → unmatchedMode
-// (deny for system capabilities, confirm for dotted plugin-shaped
-// names).
+// (deny by default; confirm for PluginConfirmPrefixes).
 //
 // connectionID may be empty, in which case behavior is identical to
 // Evaluate. This lets callers use one code path regardless of whether

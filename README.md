@@ -408,8 +408,9 @@ every release ships against — is in
 Shipped on top of v0.2.3: connect any MCP server as a Nomi tool
 (`com.nomi.mcp`, stdio or HTTP+SSE, discovered tools gated by
 `mcp.tools` and plan review), tray-menu Approve/Deny without opening
-the window, plugin tools as first-class planner arguments, plugin
-capabilities default to confirm instead of silent deny.
+the window, plugin tools as first-class planner arguments, first-party
+plugin capabilities (`mcp.*`, `scout.*`, …) default to confirm instead
+of silent deny.
 Shipped: plan-review-before-execute state machine, capability-gated
 tools, hash-chained audit log, sandboxed execution backends (local +
 Docker + gVisor), three-layer network egress isolation

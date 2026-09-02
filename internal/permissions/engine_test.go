@@ -28,7 +28,8 @@ func TestEngineEvaluate(t *testing.T) {
 		{"deny exact match", "command.exec", domain.PermissionDeny},
 		{"wildcard deny", "network.http", domain.PermissionDeny},
 		{"wildcard deny 2", "network.telegram", domain.PermissionDeny},
-		{"plugin-shaped unmatched confirms", "unknown.capability", domain.PermissionConfirm},
+		{"unknown dotted unmatched denies", "unknown.capability", domain.PermissionDeny},
+		{"first-party plugin unmatched confirms", "mcp.tools", domain.PermissionConfirm},
 		{"empty capability deny", "", domain.PermissionDeny},
 	}
 
