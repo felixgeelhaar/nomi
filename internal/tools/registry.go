@@ -202,7 +202,7 @@ func CompactSchemaSummary(schema any) string {
 	if !ok || m == nil {
 		return ""
 	}
-	propsRaw, _ := m["properties"]
+	propsRaw := m["properties"]
 	props, _ := propsRaw.(map[string]any)
 	if len(props) == 0 {
 		return ""
