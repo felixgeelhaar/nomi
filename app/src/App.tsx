@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ChatInterface } from "@/components/chat-interface";
@@ -20,6 +20,7 @@ import { OnboardingWizard } from "@/components/onboarding/wizard";
 import { EventProvider } from "@/providers/event-provider";
 import { warmHighlighter } from "@/lib/highlighter";
 import { approvalsApi, assistantsApi, healthApi, runsApi, settingsApi } from "@/lib/api";
+import { approvalCopy } from "@/lib/approval-copy";
 import { queryKeys } from "@/lib/query-keys";
 import type { Assistant } from "@/types/api";
 import {
@@ -187,6 +188,7 @@ function SidebarItem({
 }
 
 function App() {
+  const queryClient = useQueryClient();
   const [mainTab, setMainTab] = useState<MainTab>("chats");
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("plugins");
   const [chatResetToken, setChatResetToken] = useState(0);
@@ -243,6 +245,16 @@ function App() {
             setMainTab("approvals");
             return;
           }
+          if (action === "approvals-resolved") {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list() });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.runs.list() });
+            return;
+          }
+          if (action === "approvals-resolve-failed") {
+            setMainTab("approvals");
+            await queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list() });
+            return;
+          }
           if (action === "pause-agents") {
             try {
               const { runs } = await runsApi.list();
@@ -266,7 +278,7 @@ function App() {
         void unlisten();
       }
     };
-  }, []);
+  }, [queryClient]);
 
   // Tray badge + status icon. We piggy-back on React Query — EventProvider
   // already invalidates approvals.list and runs.list on every approval.* /
@@ -297,6 +309,18 @@ function App() {
 
     void invoke("set_approvals_badge", { count: pendingCount }).catch(() => {});
     void invoke("set_tray_state", { state: trayState }).catch(() => {});
+    const pending = (approvalsQuery.data?.approvals ?? [])
+      .filter((a) => a.status === "pending")
+      .map((a) => {
+        const copy = approvalCopy(a.capability, a.context);
+        return {
+          id: a.id,
+          capability: a.capability,
+          summary: copy.summary,
+          danger_signal: copy.dangerSignal ?? "",
+        };
+      });
+    void invoke("sync_approval_menu", { approvals: pending }).catch(() => {});
   }, [approvalsQuery.data, runsQuery.data]);
 
   // Refs to every tab button, in SIDEBAR_TABS order, so arrow keys can

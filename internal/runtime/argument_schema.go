@@ -35,6 +35,26 @@ type argumentField struct {
 	kind string
 }
 
+// reservedPlannerKeys are never accepted from the planner, even for
+// plugin tools whose argument schema is a passthrough. The runtime
+// owns these.
+var reservedPlannerKeys = map[string]bool{
+	"workspace_root":   true,
+	"system_prompt":    true,
+	"allowed_binaries": true,
+	"timeout":          true,
+	"__assistant_id":   true,
+	"__sandbox":        true,
+	"__sandbox_image":  true,
+}
+
+func isReservedPlannerKey(k string) bool {
+	if reservedPlannerKeys[k] {
+		return true
+	}
+	return strings.HasPrefix(k, "__")
+}
+
 // argumentSchemas is the single registry for tool argument shapes. Adding
 // a tool means adding a row here AND a case in plannerArgumentAllowlist;
 // the registry is the source of truth and the allowlist is derived from
@@ -76,6 +96,19 @@ var argumentSchemas = map[string]argumentSchema{
 		},
 		required: []string{"command"},
 	},
+	"mcp.list_tools": {
+		allowed: map[string]argumentField{
+			"connection_id": {kind: "string"},
+		},
+	},
+	"mcp.call": {
+		allowed: map[string]argumentField{
+			"connection_id": {kind: "string"},
+			"tool":          {kind: "string"},
+			"arguments":     {kind: "object"},
+		},
+		required: []string{"tool"},
+	},
 }
 
 // validatePlannerArguments enforces the per-tool schema at planner-parse
@@ -86,11 +119,14 @@ var argumentSchemas = map[string]argumentSchema{
 func validatePlannerArguments(toolName string, args map[string]interface{}) error {
 	schema, ok := argumentSchemas[toolName]
 	if !ok {
-		// Unknown tool: planner is not allowed to set anything. The merge
-		// step would drop everything anyway, but rejecting here keeps a
-		// noisy plan from polluting the database.
-		if len(args) > 0 {
-			return fmt.Errorf("tool %q has no planner argument schema; refusing %d field(s)", toolName, len(args))
+		// Plugin / dynamically registered tools (MCP, Gmail, Scout, …)
+		// have no static schema. Allow any JSON object except reserved
+		// runtime keys. The planner already rejected unknown *names*
+		// via KnownTools; this only gates the argument map.
+		for k := range args {
+			if isReservedPlannerKey(k) {
+				return fmt.Errorf("reserved field %q", k)
+			}
 		}
 		return nil
 	}
@@ -128,6 +164,9 @@ func valueMatchesKind(v interface{}, kind string) bool {
 	switch kind {
 	case "string":
 		_, ok := v.(string)
+		return ok
+	case "object":
+		_, ok := v.(map[string]interface{})
 		return ok
 	default:
 		return false

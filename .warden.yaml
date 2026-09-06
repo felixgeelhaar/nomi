@@ -1,7 +1,8 @@
-# Actions cannot run here while the spending limit holds: every job reports
-# failure with zero steps executed, so a required check that depends on them
-# is permanently red. The gate below still runs; this publishes its verdict
-# as the warden/gate commit status, which branch protection requires instead.
+# Actions are working again. Branch protection still requires the
+# `warden/gate` commit status (historically posted by local `warden` when
+# Actions could not run). `.github/workflows/ci.yml` now publishes that
+# status after CI succeeds so cloud-agent / Actions-only pushes can merge.
+# Local `warden` with status.enabled remains valid for developer machines.
 status:
   enabled: true
 

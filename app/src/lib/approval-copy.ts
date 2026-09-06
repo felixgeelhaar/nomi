@@ -93,6 +93,14 @@ export function approvalCopy(
     return { summary: "Run a shell command", dangerSignal: "shell" };
   }
 
+  if (capability === "mcp.tools") {
+    const tool = asString(input.tool || ctx.tool);
+    if (tool) {
+      return { summary: `Call MCP tool ${tool}`, dangerSignal: "network" };
+    }
+    return { summary: "Call a tool on a connected MCP server", dangerSignal: "network" };
+  }
+
   if (capability === "network.outgoing") {
     const host = asString(input.host || ctx.host || input.url || ctx.url);
     if (host) {

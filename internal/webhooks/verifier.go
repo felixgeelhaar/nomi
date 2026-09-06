@@ -5,8 +5,32 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 )
+
+// slackMaxSkew is Slack's documented replay window. Signatures whose
+// timestamp is older (or newer) than this are rejected.
+const slackMaxSkew = 5 * time.Minute
+
+// slackNow is the clock Slack timestamp checks consult. Tests swap it.
+var slackNow = time.Now
+
+// headerCI looks up a header by canonical name, then case-insensitively.
+// Incoming maps are usually Go-canonicalized, but generic clients and
+// tests sometimes send lowercase keys.
+func headerCI(headers map[string]string, key string) string {
+	if v, ok := headers[key]; ok && v != "" {
+		return v
+	}
+	for k, v := range headers {
+		if strings.EqualFold(k, key) {
+			return v
+		}
+	}
+	return ""
+}
 
 // Verifier checks whether a webhook payload was sent by the claimed
 // provider using a shared secret.
@@ -38,7 +62,7 @@ func chooseVerifier(pluginID string) Verifier {
 type githubVerifier struct{}
 
 func (v *githubVerifier) Verify(body []byte, secret string, headers map[string]string) error {
-	sig := headers["X-Hub-Signature-256"]
+	sig := headerCI(headers, "X-Hub-Signature-256")
 	if sig == "" {
 		return fmt.Errorf("missing X-Hub-Signature-256 header")
 	}
@@ -62,7 +86,7 @@ func (v *githubVerifier) Verify(body []byte, secret string, headers map[string]s
 }
 
 func (v *githubVerifier) EventType(headers map[string]string, body []byte) string {
-	return headers["X-GitHub-Event"]
+	return headerCI(headers, "X-GitHub-Event")
 }
 
 // ---------------------------------------------------------------------------
@@ -72,19 +96,29 @@ func (v *githubVerifier) EventType(headers map[string]string, body []byte) strin
 type slackVerifier struct{}
 
 func (v *slackVerifier) Verify(body []byte, secret string, headers map[string]string) error {
-	sig := headers["X-Slack-Signature"]
+	sig := headerCI(headers, "X-Slack-Signature")
 	if sig == "" {
 		return fmt.Errorf("missing X-Slack-Signature header")
 	}
-	ts := headers["X-Slack-Request-Timestamp"]
+	ts := headerCI(headers, "X-Slack-Request-Timestamp")
 	if ts == "" {
 		return fmt.Errorf("missing X-Slack-Request-Timestamp header")
 	}
+	tsInt, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid Slack timestamp")
+	}
+	skew := slackNow().UTC().Unix() - tsInt
+	if skew < 0 {
+		skew = -skew
+	}
+	if time.Duration(skew)*time.Second > slackMaxSkew {
+		return fmt.Errorf("timestamp too old")
+	}
 
 	// Slack signature base string: "v0:timestamp:body"
-	base := fmt.Sprintf("v0:%s:%s", ts, string(body))
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(base))
+	_, _ = fmt.Fprintf(mac, "v0:%s:%s", ts, body)
 	expected := "v0=" + hex.EncodeToString(mac.Sum(nil))
 
 	if !hmac.Equal([]byte(expected), []byte(sig)) {
@@ -109,7 +143,7 @@ func (v *slackVerifier) EventType(headers map[string]string, body []byte) string
 type whatsappVerifier struct{}
 
 func (v *whatsappVerifier) Verify(body []byte, secret string, headers map[string]string) error {
-	sig := headers["X-Hub-Signature-256"]
+	sig := headerCI(headers, "X-Hub-Signature-256")
 	if sig == "" {
 		return fmt.Errorf("missing X-Hub-Signature-256 header")
 	}
@@ -145,7 +179,7 @@ func (v *whatsappVerifier) EventType(headers map[string]string, body []byte) str
 type genericHMACVerifier struct{}
 
 func (v *genericHMACVerifier) Verify(body []byte, secret string, headers map[string]string) error {
-	sig := headers["X-Webhook-Signature"]
+	sig := headerCI(headers, "X-Webhook-Signature")
 	if sig == "" {
 		return fmt.Errorf("missing X-Webhook-Signature header")
 	}
@@ -159,5 +193,5 @@ func (v *genericHMACVerifier) Verify(body []byte, secret string, headers map[str
 }
 
 func (v *genericHMACVerifier) EventType(headers map[string]string, body []byte) string {
-	return headers["X-Webhook-Event"]
+	return headerCI(headers, "X-Webhook-Event")
 }

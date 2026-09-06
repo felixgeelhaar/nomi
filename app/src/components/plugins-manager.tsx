@@ -35,6 +35,30 @@ import {
 } from "@/lib/email-presets";
 
 const EMAIL_PLUGIN_ID = "com.nomi.email";
+const MCP_PLUGIN_ID = "com.nomi.mcp";
+const SCOUT_PLUGIN_ID = "com.nomi.scout";
+
+/** stdio vs http fields for MCP-shaped plugins (Scout + generic MCP). */
+function configFieldVisibleForTransport(
+  pluginID: string,
+  transport: string,
+  key: string,
+): boolean {
+  if (pluginID !== MCP_PLUGIN_ID && pluginID !== SCOUT_PLUGIN_ID) return true;
+  if (key === "transport") return true;
+  if (transport === "http") {
+    return key === "endpoint" || key === "timeout_seconds";
+  }
+  // stdio (default)
+  return key === "command" || key === "args" || key === "timeout_seconds";
+}
+
+function canAddConnection(plugin: Plugin): boolean {
+  if (plugin.manifest.cardinality === "single") return false;
+  const creds = plugin.manifest.requires?.credentials ?? [];
+  const schema = plugin.manifest.requires?.config_schema ?? {};
+  return creds.length > 0 || Object.keys(schema).length > 0;
+}
 
 // HealthBadge renders the per-connection health indicator. Rule of thumb:
 //   - red dot   → LastError is set (most recent op failed)
@@ -191,7 +215,10 @@ function AddConnectionDialog({
   });
 
   const requiredCreds = plugin.manifest.requires?.credentials ?? [];
-  const configSchema = Object.entries(plugin.manifest.requires?.config_schema ?? {});
+  const transport = config.transport || "stdio";
+  const configSchema = Object.entries(plugin.manifest.requires?.config_schema ?? {}).filter(
+    ([key]) => configFieldVisibleForTransport(plugin.manifest.id, transport, key),
+  );
 
   // Email-only: when the user types their email into the username field,
   // try to auto-detect the provider preset. Firing on every keystroke
@@ -372,6 +399,22 @@ function AddConnectionDialog({
                 return;
               }
             }
+            // Transport-specific required fields that aren't marked required
+            // in the shared schema (command for stdio, endpoint for http).
+            if (
+              plugin.manifest.id === MCP_PLUGIN_ID ||
+              plugin.manifest.id === SCOUT_PLUGIN_ID
+            ) {
+              const t = config.transport || "stdio";
+              if (t === "stdio" && !config.command) {
+                setError("Command is required for stdio transport");
+                return;
+              }
+              if (t === "http" && !config.endpoint) {
+                setError("Endpoint is required for HTTP transport");
+                return;
+              }
+            }
             for (const cred of requiredCreds) {
               if (cred.required && !credentials[cred.key]) {
                 setError(`${cred.label} is required`);
@@ -401,6 +444,54 @@ function ConnectionRow({
   const [expanded, setExpanded] = useState(false);
   const hasChannelRole = (plugin.manifest.contributes.channels?.length ?? 0) > 0;
   const hasWebhookSupport = (plugin.manifest.contributes.triggers?.length ?? 0) > 0;
+  const hasToolRole = (plugin.manifest.contributes.tools?.length ?? 0) > 0;
+  const canExpand = hasChannelRole || hasWebhookSupport || hasToolRole;
+  const discoveredTools = connection.health?.discovered_tools ?? [];
+  const [editingConfig, setEditingConfig] = useState(false);
+  const [configDraft, setConfigDraft] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(connection.config ?? {})) {
+      out[k] = v == null ? "" : String(v);
+    }
+    return out;
+  });
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  const saveConfig = useMutation({
+    mutationFn: () => {
+      const configPayload: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(configDraft)) {
+        if (v === "") continue;
+        const field = plugin.manifest.requires?.config_schema?.[k];
+        if (field?.type === "number") {
+          const n = Number(v);
+          configPayload[k] = Number.isFinite(n) ? n : v;
+        } else {
+          configPayload[k] = v;
+        }
+      }
+      return pluginsApi.updateConnection(plugin.manifest.id, connection.id, {
+        config: configPayload,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plugins"] });
+      setEditingConfig(false);
+      setConfigError(null);
+    },
+    onError: (err) => setConfigError(errorMessage(err)),
+  });
+
+  const rediscover = useMutation({
+    mutationFn: () =>
+      // Restart by toggling enabled — Create/Update already restarts the
+      // plugin; a no-op enable refresh re-runs discovery.
+      pluginsApi.updateConnection(plugin.manifest.id, connection.id, {
+        enabled: connection.enabled,
+        config: connection.config,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["plugins"] }),
+  });
 
   const toggle = useMutation({
     mutationFn: (enabled: boolean) =>
@@ -440,7 +531,7 @@ function ConnectionRow({
     <div className="border rounded-md text-sm">
       <div className="flex items-center justify-between p-2">
         <div className="min-w-0 flex items-center gap-2">
-          {(hasChannelRole || hasWebhookSupport) && (
+          {canExpand && (
             <button
               onClick={() => setExpanded((v) => !v)}
               className="text-muted-foreground hover:text-foreground"
@@ -501,6 +592,119 @@ function ConnectionRow({
       </div>
       {expanded && (
         <div className="border-t p-2 space-y-3">
+          {hasToolRole && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium">
+                  Discovered tools ({discoveredTools.length})
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => rediscover.mutate()}
+                  disabled={rediscover.isPending || !connection.enabled}
+                  title="Re-run tool discovery"
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${rediscover.isPending ? "animate-spin" : ""}`}
+                  />
+                </Button>
+              </div>
+              {discoveredTools.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {connection.health?.last_error
+                    ? `Discovery failed: ${connection.health.last_error}`
+                    : connection.enabled
+                      ? "No tools discovered yet. Check the command/endpoint and rediscover."
+                      : "Enable the connection to discover tools."}
+                </p>
+              ) : (
+                <ul className="text-xs font-mono space-y-0.5 max-h-40 overflow-y-auto">
+                  {discoveredTools.map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
+              )}
+              {(plugin.manifest.id === MCP_PLUGIN_ID ||
+                plugin.manifest.id === SCOUT_PLUGIN_ID) && (
+                <div className="space-y-2 pt-1">
+                  {!editingConfig ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingConfig(true)}
+                    >
+                      Edit connection config
+                    </Button>
+                  ) : (
+                    <div className="space-y-2 border rounded p-2">
+                      {Object.entries(plugin.manifest.requires?.config_schema ?? {})
+                        .filter(([key]) =>
+                          configFieldVisibleForTransport(
+                            plugin.manifest.id,
+                            configDraft.transport || "stdio",
+                            key,
+                          ),
+                        )
+                        .map(([key, field]) => (
+                          <div key={key} className="space-y-1">
+                            <label className="text-xs font-medium">{field.label}</label>
+                            {field.type === "enum" && field.options ? (
+                              <select
+                                className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs"
+                                value={configDraft[key] ?? field.default ?? ""}
+                                onChange={(e) =>
+                                  setConfigDraft((prev) => ({
+                                    ...prev,
+                                    [key]: e.target.value,
+                                  }))
+                                }
+                              >
+                                {field.options.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label || opt.value}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <Input
+                                className="h-8 text-xs"
+                                value={configDraft[key] ?? ""}
+                                onChange={(e) =>
+                                  setConfigDraft((prev) => ({
+                                    ...prev,
+                                    [key]: e.target.value,
+                                  }))
+                                }
+                              />
+                            )}
+                          </div>
+                        ))}
+                      {configError && (
+                        <p className="text-xs text-destructive">{configError}</p>
+                      )}
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingConfig(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => saveConfig.mutate()}
+                          disabled={saveConfig.isPending}
+                        >
+                          {saveConfig.isPending ? "Saving…" : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {hasChannelRole && (
             <IdentityAllowlist pluginID={plugin.manifest.id} connectionID={connection.id} />
           )}
@@ -811,8 +1015,7 @@ function PluginCard({ plugin }: { plugin: Plugin }) {
           )}
         </div>
 
-        {plugin.manifest.cardinality !== "single" &&
-          (plugin.manifest.requires?.credentials ?? []).length > 0 && (
+        {canAddConnection(plugin) && (
             <>
               {!adding ? (
                 <Button size="sm" variant="outline" onClick={() => setAdding(true)}>

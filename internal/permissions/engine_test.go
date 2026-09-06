@@ -28,8 +28,9 @@ func TestEngineEvaluate(t *testing.T) {
 		{"deny exact match", "command.exec", domain.PermissionDeny},
 		{"wildcard deny", "network.http", domain.PermissionDeny},
 		{"wildcard deny 2", "network.telegram", domain.PermissionDeny},
-		{"default deny", "unknown.capability", domain.PermissionDeny},
-		{"empty policy deny", "", domain.PermissionDeny},
+		{"unknown dotted unmatched denies", "unknown.capability", domain.PermissionDeny},
+		{"first-party plugin unmatched confirms", "mcp.tools", domain.PermissionConfirm},
+		{"empty capability deny", "", domain.PermissionDeny},
 	}
 
 	for _, tt := range tests {

@@ -3,6 +3,8 @@ package tools
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -127,6 +129,121 @@ func NewExecutor(registry *Registry) *Executor {
 // the runtime's direct dependency graph.
 func (e *Executor) KnownTools() []string {
 	return e.registry.Names()
+}
+
+// CapabilityFor returns the permission capability the named tool
+// declares, or "" if the tool is not registered. Used by the runtime
+// so plugin tools (scout.navigate → scout.browse, mcp.call → mcp.tools)
+// are gated by their real capability instead of their tool name.
+func (e *Executor) CapabilityFor(name string) string {
+	if e == nil || e.registry == nil {
+		return ""
+	}
+	tool, err := e.registry.Get(name)
+	if err != nil {
+		return ""
+	}
+	return tool.Capability()
+}
+
+// DescriptionFor returns a human-readable one-liner for a tool that
+// implements Describer, or "" if the tool is unregistered / silent.
+func (e *Executor) DescriptionFor(name string) string {
+	if e == nil || e.registry == nil {
+		return ""
+	}
+	tool, err := e.registry.Get(name)
+	if err != nil {
+		return ""
+	}
+	if d, ok := tool.(Describer); ok {
+		return d.Description()
+	}
+	return ""
+}
+
+// Describer is an optional extension of Tool. The planner uses it to
+// show MCP-discovered (and other plugin) tools with their upstream
+// descriptions instead of a bare name.
+type Describer interface {
+	Description() string
+}
+
+// SchemaProvider is an optional extension of Tool. When present, the
+// planner appends a compact argument summary so the LLM can emit valid
+// arguments for MCP-discovered tools (Goose/Cline parity).
+type SchemaProvider interface {
+	// InputSchema returns a JSON-Schema-shaped object (typically
+	// map[string]any with type/properties/required). Nil means unknown.
+	InputSchema() any
+}
+
+// SchemaSummaryFor returns a short "args: a (string), b?" line derived
+// from a SchemaProvider, or "" when the tool has no schema.
+func (e *Executor) SchemaSummaryFor(name string) string {
+	if e == nil || e.registry == nil {
+		return ""
+	}
+	tool, err := e.registry.Get(name)
+	if err != nil {
+		return ""
+	}
+	sp, ok := tool.(SchemaProvider)
+	if !ok {
+		return ""
+	}
+	return CompactSchemaSummary(sp.InputSchema())
+}
+
+// CompactSchemaSummary turns a JSON Schema object into a one-line arg
+// hint for the planner prompt. Keeps the prompt budget small.
+func CompactSchemaSummary(schema any) string {
+	m, ok := schema.(map[string]any)
+	if !ok || m == nil {
+		return ""
+	}
+	propsRaw := m["properties"]
+	props, _ := propsRaw.(map[string]any)
+	if len(props) == 0 {
+		return ""
+	}
+	requiredSet := map[string]bool{}
+	switch req := m["required"].(type) {
+	case []any:
+		for _, r := range req {
+			if s, ok := r.(string); ok {
+				requiredSet[s] = true
+			}
+		}
+	case []string:
+		for _, s := range req {
+			requiredSet[s] = true
+		}
+	}
+	names := make([]string, 0, len(props))
+	for name := range props {
+		names = append(names, name)
+	}
+	// Stable order for deterministic prompts.
+	sort.Strings(names)
+	parts := make([]string, 0, len(names))
+	for _, name := range names {
+		typ := "any"
+		if pm, ok := props[name].(map[string]any); ok {
+			if t, ok := pm["type"].(string); ok && t != "" {
+				typ = t
+			}
+		}
+		if requiredSet[name] {
+			parts = append(parts, name+" ("+typ+")")
+		} else {
+			parts = append(parts, name+"? ("+typ+")")
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "Args: " + strings.Join(parts, ", ")
 }
 
 // Execute runs a tool and returns a structured result

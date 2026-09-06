@@ -106,6 +106,7 @@ export interface ConnectionHealth {
   last_event_at?: string;
   last_error?: string;
   error_count: number;
+  discovered_tools?: string[];
 }
 
 export interface PluginConnection {

@@ -4,6 +4,60 @@ All notable changes to Nomi are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.4] - 2026-08-18 — Compete: generic MCP + tray quick-approve
+
+The reviewable-agents thesis only wins against OpenClaw / Goose / Cline
+if (1) any MCP server can be a Nomi tool without writing a plugin, and
+(2) "ask before you act" does not mean "open the full window." This
+release ships both, plus the planner/permission fixes that made plugin
+tools first-class.
+
+### Added
+- **Generic MCP plugin (`com.nomi.mcp`).** Point a connection at any
+  stdio or HTTP+SSE MCP server. `mcp.list_tools` / `mcp.call` are the
+  stable dispatch surface; discovered upstream tools are hot-registered
+  as `mcp.<connection>.<tool>` so the planner can name them. Every call
+  is gated by capability `mcp.tools` and plan review.
+- **Tray quick-approve.** Pending approvals appear as Approve / Deny
+  items in the macOS/Linux/Windows tray menu. Resolving one does not
+  require opening the main window.
+- Webhook verifier tests. Slack signatures now reject timestamps older
+  than five minutes (replay window). Webhook audit events no longer
+  persist request bodies or headers.
+- Frontend lint + unit tests run on every PR (`ci.yml`).
+
+### Changed
+- Unmatched **first-party plugin** capabilities (`mcp.*`, `scout.*`,
+  `gmail.*`, … — see `PluginConfirmPrefixes`) default to **confirm**
+  instead of deny, so a bound Gmail/Scout/MCP tool surfaces an approval
+  card instead of failing silently. System capabilities and unknown
+  dotted names stay deny-by-default.
+- MCP discovered tools keep their upstream `InputSchema`; the planner
+  prompt includes a compact Args summary so plans emit valid arguments
+  (Goose/Cline parity). `mcp.list_tools` returns `input_schema`.
+- MCP/Scout connection rows show discovered tool names, allow config
+  edit + rediscover, and hide transport-irrelevant fields. "Add
+  connection" is gated on credentials **or** config schema.
+- Tray quick-approve uses plain-English summaries; irreversible and
+  `filesystem.write` cards open the Approvals tab instead of resolving
+  from the tray (forcing function / diff preview). Resolve failures
+  open the window.
+- The planner accepts arguments for plugin tools (passthrough except
+  reserved runtime keys). Previously any argument on an unschematized
+  tool rejected the whole plan — MCP/Gmail/Scout tools could not be
+  planned with real inputs.
+- `getCapabilityForTool` reads `Tool.Capability()` from the registry, so
+  `scout.navigate` is gated as `scout.browse` rather than as a
+  never-matching tool name.
+- Runtime injects `__assistant_id` into every tool call so connection
+  binding checks actually fire in production.
+- Mnemos E2E workflow pins `v0.19.0`, matching `go.mod`.
+
+### Security
+- Slack webhook HMAC now includes the documented 5-minute timestamp
+  skew check.
+- Webhook event payloads no longer store `body_preview` (tokens / PII).
+
 ## [0.2.3] - 2026-05-23 — Security hardening + MCP-client wedge
 
 Six features close out the V1 polish wave. Theme: the reviewable-

@@ -210,6 +210,9 @@ type ConnectionHealth struct {
 	// ErrorCount is the running count of errors since the last success.
 	// Reset to zero when a subsequent operation succeeds.
 	ErrorCount int `json:"error_count"`
+	// DiscoveredTools lists hot-registered tool names for this connection
+	// (MCP plugin). Empty for plugins that do not discover tools.
+	DiscoveredTools []string `json:"discovered_tools,omitempty"`
 }
 
 // WebhookReceiver is implemented by plugins that accept inbound webhook

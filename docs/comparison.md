@@ -3,7 +3,7 @@
 How Nomi differs from other agent platforms. Facts only — every column
 maps to behavior shipped today, not roadmap claims.
 
-> **Disclosure:** rows describe Nomi as of v0.2.3 and competitor projects
+> **Disclosure:** rows describe Nomi as of v0.2.4 and competitor projects
 > as of early 2026. Competitor capabilities evolve quickly; if a row is
 > stale, please open an issue.
 
@@ -18,7 +18,7 @@ maps to behavior shipped today, not roadmap claims.
 | Approval workflow (out-of-band) | ✅ Approval cards in desktop UI; resolvable later | ✕ Inline only | ✕ Inline only | ✕ Inline only | ✕ Inline only | ✕ | ✕ |
 | BYO LLM | ✅ Anthropic, OpenAI, Ollama; per-assistant override | ✅ | ✅ | ✅ | ✕ Anthropic only | ✅ | ✅ |
 | Desktop UI | ✅ Tauri shell (macOS / Linux / Windows) | ✅ Goose Desktop | ◐ VSCode extension | ◐ Terminal + 01 device | ✕ CLI | ◐ Web UI | ✕ |
-| Plugin sandbox | ✅ WASM (wazero) + ed25519 signing | ◐ MCP servers | ◐ MCP servers | ✕ | ◐ MCP servers | ◐ Python plugins | ◐ Python tools |
+| Plugin sandbox | ✅ WASM (wazero) + ed25519 signing **and** generic MCP (`com.nomi.mcp`) | ✅ MCP servers | ✅ MCP servers | ✕ | ◐ MCP servers | ◐ Python plugins | ◐ Python tools |
 | Network egress isolation | ✅ `--network=none` default + DNS allowlist (`--add-host` pinning) + optional eBPF cgroup_skb filter (IPv4 + IPv6, both docker cgroup drivers) | ✕ | ✕ | ✕ | ◐ tool-level allowlist | ✕ | ✕ |
 | Browser automation | ✅ Scout MCP-client plugin, capability-gated through plan review | ◐ via MCP server | ✕ | ◐ via tool | ✕ | ◐ via plugin | ◐ via tool |
 | License | Apache-2.0 | Apache-2.0 | Apache-2.0 | AGPL-3.0 | Proprietary | MIT | MIT |
@@ -73,11 +73,12 @@ Goose ships a desktop client and a strong MCP story. Differences:
   machine, so you can edit the plan, branch from it, and only then
   approve.
 - **Plugin sandbox.** Goose extends through MCP servers (subprocesses).
-  Nomi runs plugins as WASM via wazero with ed25519 signature
-  verification — narrower capability surface, smaller attack surface.
+  Nomi does both: signed WASM via wazero, plus a generic MCP plugin
+  (`com.nomi.mcp`) so any stdio/HTTP MCP server is a capability-gated
+  tool that still goes through plan review.
 
-When Goose wins: you want MCP-first interop with a wider plugin
-ecosystem. When Nomi wins: you want signed-WASM plugin isolation and
+When Goose wins: you want MCP-first interop with no extra daemon.
+When Nomi wins: you want MCP *and* signed-WASM isolation, with
 plan-review-as-a-state, not as a habit.
 
 ### Nomi vs **OpenInterpreter**
@@ -149,7 +150,8 @@ companion only, no workflow execution.
 | Scheduled runs | ✅ Cron + NL-to-cron via LLM | ✕ | ✕ | ✅ NL cron | n/a |
 | Recipe registry | ✅ Signed (SHA-256) shareable YAML bundles + install/export | ✕ | ✕ | ◐ Skills (different shape) | n/a |
 | Skill induction | ✅ Heuristic clustering + LLM synthesis from run history | ✕ | ✕ | ✅ Self-improving (opaque) | n/a |
-| Connector breadth (shipped) | Telegram, Slack, Discord, WhatsApp, Email, Gmail, GitHub, Obsidian, Calendar (roadmap: 10+) | 20+ messaging apps + email | 13+ (WhatsApp, Telegram, Slack, Teams, Gmail, iMessage, Matrix, GitHub, Linear, …) | Telegram-primary + others | n/a |
+| Connector breadth (shipped) | Telegram, Slack, Discord, WhatsApp, Email, Gmail, GitHub, Obsidian, Calendar + generic MCP | 20+ messaging apps + email | 13+ (WhatsApp, Telegram, Slack, Teams, Gmail, iMessage, Matrix, GitHub, Linear, …) | Telegram-primary + others | n/a |
+| Tray / menu-bar approve | ✅ Approve/Deny from the tray without opening the window | ✕ | ✕ | ✕ | n/a |
 | Model strategy | ✅ BYO any (Ollama, Anthropic, OpenAI, OpenAI-compatible) | ✅ BYO API key | ◐ Anthropic Agents SDK bias | ✅ 300+ via OpenRouter + direct | ✕ Inflection 2.5 only |
 | License | Apache-2.0 | Apache-2.0 (non-profit stewardship) | MIT | Open source | Proprietary |
 | Threat model | Agent does the wrong thing → gated by capability engine + plan review | Agent has broad reach by design → user trusts the agent | Agent escapes execution boundary → contained by Docker / micro-VM | Agent does the wrong thing → confirm-per-action | n/a |
@@ -174,8 +176,11 @@ OpenClaw is the breadth-of-integrations comparison and the most likely
 - **Plugin posture.** OpenClaw's extension model is JS / npm. Nomi
   ships WASM (wazero) + ed25519 signature verification — narrower
   capability surface, signed supply chain.
-- **Connector breadth today.** OpenClaw wins outright — 20+ messaging
-  apps shipping. Nomi has Telegram today; the rest is on the roadmap.
+- **Connector breadth today.** OpenClaw still leads on raw messaging
+  app count. Nomi ships Telegram, Slack, Discord, WhatsApp, Email,
+  Gmail, GitHub, Obsidian, Calendar, plus a generic MCP plugin so any
+  MCP server (filesystem, postgres, github, browser, …) is a
+  capability-gated tool without writing a Nomi plugin.
 
 When OpenClaw wins: you want maximum connector coverage now and you
 trust the agent broadly. When Nomi wins: you want to inspect a plan
@@ -199,7 +204,8 @@ seriously about agent safety. Different layers of the threat model:
 - **Plan review.** NanoClaw doesn't surface a plan-before-execution
   state. Nomi does.
 - **Connectors today.** NanoClaw ships ~13 messaging connectors out of
-  the box. Nomi ships Telegram.
+  the box. Nomi ships Telegram, Slack, Discord, WhatsApp, Email, Gmail,
+  GitHub, Obsidian, Calendar, and generic MCP.
 
 When NanoClaw wins: you need container-grade isolation today, you're
 comfortable on Anthropic models, you want the connector breadth now.
@@ -258,9 +264,10 @@ the actions you saw and approved.
 
 To keep the comparisons honest:
 
-- **Telegram is the only shipped connector** today. Email, Slack,
-  Discord, Calendar, Obsidian and the rest of the README "Plugins"
-  list are roadmap items.
+- **OpenClaw still leads on raw messaging-app count.** Nomi ships
+  Telegram, Slack, Discord, WhatsApp, Email, plus Gmail / GitHub /
+  Obsidian / Calendar plugins and generic MCP. The long tail of
+  iMessage / Matrix / Teams / 20+ chat apps is still OpenClaw's.
 - **No multi-tenant / team mode.** Nomi runs as a single-user local
   daemon. Cross-device sync (E2E-encrypted) is on the post-V1
   roadmap, not shipped.

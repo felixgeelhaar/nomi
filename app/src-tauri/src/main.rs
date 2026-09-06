@@ -344,6 +344,217 @@ async fn set_tray_state(app: AppHandle, state: String) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Clone, serde::Deserialize)]
+struct PendingApproval {
+    id: String,
+    capability: String,
+    #[serde(default)]
+    summary: String,
+    #[serde(default)]
+    danger_signal: String,
+}
+
+fn truncate_label(s: &str, max: usize) -> String {
+    let count = s.chars().count();
+    if count <= max {
+        return s.to_string();
+    }
+    let cut: String = s.chars().take(max).collect();
+    format!("{cut}…")
+}
+
+fn tray_requires_window(a: &PendingApproval) -> bool {
+    // Irreversible commands and filesystem writes need the in-app forcing
+    // function / diff preview. Tray Approve would skip those safeguards.
+    a.danger_signal == "irreversible" || a.capability == "filesystem.write"
+}
+
+fn build_tray_menu(
+    app: &tauri::AppHandle,
+    approvals: &[PendingApproval],
+) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
+    let approvals_label = if approvals.is_empty() {
+        "Approvals".to_string()
+    } else {
+        format!("Approvals ({})", approvals.len())
+    };
+
+    let new_chat = tauri::menu::MenuItemBuilder::new("New Chat")
+        .id("new-chat")
+        .build(app)?;
+    let open = tauri::menu::MenuItemBuilder::new("Open Nomi")
+        .id("open-nomi")
+        .build(app)?;
+    let pause = tauri::menu::MenuItemBuilder::new("Pause All Agents")
+        .id("pause-agents")
+        .build(app)?;
+    let approvals_item = tauri::menu::MenuItemBuilder::new(&approvals_label)
+        .id("approvals")
+        .build(app)?;
+    let settings = tauri::menu::MenuItemBuilder::new("Settings")
+        .id("settings")
+        .build(app)?;
+    let quit = tauri::menu::MenuItemBuilder::new("Quit").id("quit").build(app)?;
+
+    let mut quick: Vec<tauri::menu::MenuItem<tauri::Wry>> = Vec::new();
+    for a in approvals.iter().take(4) {
+        let label = if a.summary.is_empty() {
+            truncate_label(&a.capability, 36)
+        } else {
+            truncate_label(&a.summary, 36)
+        };
+        if tray_requires_window(a) {
+            quick.push(
+                tauri::menu::MenuItemBuilder::new(format!("Review {label}"))
+                    .id(format!("review:{}", a.id))
+                    .build(app)?,
+            );
+            continue;
+        }
+        quick.push(
+            tauri::menu::MenuItemBuilder::new(format!("Approve {label}"))
+                .id(format!("approve:{}", a.id))
+                .build(app)?,
+        );
+        quick.push(
+            tauri::menu::MenuItemBuilder::new(format!("Deny {label}"))
+                .id(format!("deny:{}", a.id))
+                .build(app)?,
+        );
+    }
+
+    let mut builder = tauri::menu::MenuBuilder::new(app)
+        .item(&new_chat)
+        .separator()
+        .item(&open)
+        .item(&pause)
+        .item(&approvals_item);
+    for item in &quick {
+        builder = builder.item(item);
+    }
+    builder
+        .separator()
+        .item(&settings)
+        .separator()
+        .item(&quit)
+        .build()
+}
+
+async fn resolve_approval_http(approval_id: &str, approved: bool) -> Result<(), String> {
+    let token = read_auth_token()?;
+    let url = format!(
+        "{}/approvals/{}/resolve",
+        read_api_endpoint(),
+        approval_id
+    );
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .post(url)
+        .header("Authorization", format!("Bearer {token}"))
+        .json(&serde_json::json!({ "approved": approved }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("resolve failed: {}", resp.status()));
+    }
+    Ok(())
+}
+
+fn handle_tray_menu(app: &AppHandle, id: &str) {
+    match id {
+        "new-chat" => {
+            let _ = app.emit("tray-menu-clicked", "new-chat");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        "open-nomi" => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        "pause-agents" => {
+            let _ = app.emit("tray-menu-clicked", "pause-agents");
+        }
+        "approvals" => {
+            let _ = app.emit("tray-menu-clicked", "approvals");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        other if other.starts_with("review:") => {
+            let _ = app.emit("tray-menu-clicked", "approvals");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        "settings" => {
+            let _ = app.emit("tray-menu-clicked", "settings");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        "quit" => {
+            tauri::async_runtime::block_on(async {
+                if let Some(state) = app.try_state::<NomiDaemonState>() {
+                    let mut guard = state.child.lock().await;
+                    if let Some(mut child) = guard.take() {
+                        let _ = child.kill();
+                    }
+                }
+            });
+            app.exit(0);
+        }
+        other if other.starts_with("approve:") || other.starts_with("deny:") => {
+            let approved = other.starts_with("approve:");
+            let aid = other
+                .split_once(':')
+                .map(|(_, rest)| rest.to_string())
+                .unwrap_or_default();
+            let app_clone = app.clone();
+            tauri::async_runtime::spawn(async move {
+                match resolve_approval_http(&aid, approved).await {
+                    Ok(()) => {
+                        let _ = app_clone.emit("tray-menu-clicked", "approvals-resolved");
+                    }
+                    Err(e) => {
+                        eprintln!("[nomi-app] tray approve/deny failed: {e}");
+                        let _ = app_clone.emit("tray-menu-clicked", "approvals-resolve-failed");
+                        if let Some(window) = app_clone.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                }
+            });
+        }
+        _ => {}
+    }
+}
+
+/// Rebuild the tray menu with inline Approve/Deny items for pending
+/// approvals so the user can resolve them without opening the window.
+#[tauri::command]
+async fn sync_approval_menu(
+    app: AppHandle,
+    approvals: Vec<PendingApproval>,
+) -> Result<(), String> {
+    let menu = build_tray_menu(&app, &approvals).map_err(|e| e.to_string())?;
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn check_ollama_reachable() -> Result<bool, String> {
     let client = reqwest::Client::new();
@@ -479,7 +690,8 @@ fn main() {
             pick_workspace_folder,
             app_version,
             set_approvals_badge,
-            set_tray_state
+            set_tray_state,
+            sync_approval_menu
         ])
         .setup(|app| {
             // macOS daemon-app convention: clicking the red traffic-light
@@ -497,29 +709,7 @@ fn main() {
                 });
             }
 
-            let menu = tauri::menu::MenuBuilder::new(app)
-                .item(&tauri::menu::MenuItemBuilder::new("New Chat")
-                    .id("new-chat")
-                    .build(app)?)
-                .separator()
-                .item(&tauri::menu::MenuItemBuilder::new("Open Nomi")
-                    .id("open-nomi")
-                    .build(app)?)
-                .item(&tauri::menu::MenuItemBuilder::new("Pause All Agents")
-                    .id("pause-agents")
-                    .build(app)?)
-                .item(&tauri::menu::MenuItemBuilder::new("Approvals")
-                    .id("approvals")
-                    .build(app)?)
-                .separator()
-                .item(&tauri::menu::MenuItemBuilder::new("Settings")
-                    .id("settings")
-                    .build(app)?)
-                .separator()
-                .item(&tauri::menu::MenuItemBuilder::new("Quit")
-                    .id("quit")
-                    .build(app)?)
-                .build()?;
+            let menu = build_tray_menu(app.handle(), &[])?;
 
             // Build the tray with or without an icon. Previously this unwrap()
             // panicked in headless test environments where the bundled icon
@@ -527,52 +717,7 @@ fn main() {
             let mut tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
                 .menu(&menu)
                 .show_menu_on_left_click(true)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "new-chat" => {
-                        let _ = app.emit("tray-menu-clicked", "new-chat");
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "open-nomi" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "pause-agents" => {
-                        let _ = app.emit("tray-menu-clicked", "pause-agents");
-                    }
-                    "approvals" => {
-                        let _ = app.emit("tray-menu-clicked", "approvals");
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "settings" => {
-                        let _ = app.emit("tray-menu-clicked", "settings");
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "quit" => {
-                        // Kill the sidecar before exiting so we don't leave a
-                        // ghost nomid process behind.
-                        tauri::async_runtime::block_on(async {
-                            if let Some(state) = app.try_state::<NomiDaemonState>() {
-                                let mut guard = state.child.lock().await;
-                                if let Some(mut child) = guard.take() {
-                                    let _ = child.kill();
-                                }
-                            }
-                        });
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
+                .on_menu_event(|app, event| handle_tray_menu(app, event.id.as_ref()))
                 .on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
                         let app = tray.app_handle();

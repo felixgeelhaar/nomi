@@ -42,6 +42,8 @@ var toolDescription = map[string]string{
 	"filesystem.list":    "List the contents of a folder inside the assistant's workspace. Returns names + sizes + modified times. Use this before reading specific files.",
 	"filesystem.context": "List the folder structure of the assistant's workspace. Useful for orienting before reading specific files.",
 	"command.exec":       "Run a single shell command. Only allowed binaries are permitted; the command is refused if it contains shell metacharacters. Requires user approval.",
+	"mcp.list_tools":     "List tools exposed by a connected MCP server. Optional connection_id; if omitted, the assistant's bound MCP connection is used.",
+	"mcp.call":           "Call a tool on a connected MCP server. Arguments: tool (name), arguments (object), optional connection_id. Requires user approval (mcp.tools).",
 }
 
 // planWithLLM asks the default LLM to decompose a goal into a list of
@@ -270,7 +272,15 @@ func (r *Runtime) availableToolsForPlanner(assistant *domain.AssistantDefinition
 		if assistant != nil && !r.toolPermittedForAssistant(n, assistant) {
 			continue
 		}
-		out = append(out, toolInfo{Name: n, Description: toolDescription[n]})
+		desc := toolDescription[n]
+		if desc == "" && r.toolExecutor != nil {
+			desc = r.toolExecutor.DescriptionFor(n)
+		}
+		summary := ""
+		if r.toolExecutor != nil {
+			summary = r.toolExecutor.SchemaSummaryFor(n)
+		}
+		out = append(out, toolInfo{Name: n, Description: desc, SchemaSummary: summary})
 	}
 	return out
 }
@@ -286,8 +296,9 @@ func (r *Runtime) toolPermittedForAssistant(toolName string, assistant *domain.A
 }
 
 type toolInfo struct {
-	Name        string
-	Description string
+	Name          string
+	Description   string
+	SchemaSummary string
 }
 
 // plannerSystemPrompt is stable across all planning calls. User- and
@@ -347,11 +358,14 @@ func buildPlannerPrompt(
 
 	b.WriteString("Available tools:\n")
 	for _, t := range tools {
+		line := "- " + t.Name
 		if t.Description != "" {
-			fmt.Fprintf(&b, "- %s: %s\n", t.Name, t.Description)
-		} else {
-			fmt.Fprintf(&b, "- %s\n", t.Name)
+			line += ": " + t.Description
 		}
+		if t.SchemaSummary != "" {
+			line += ". " + t.SchemaSummary
+		}
+		b.WriteString(line + "\n")
 	}
 	b.WriteString("\n")
 
